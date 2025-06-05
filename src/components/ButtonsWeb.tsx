@@ -1,7 +1,7 @@
 import { useGameContext } from "src/context/gameContext";
-import SignInButton from './SignInButton'
 
-const ButtonsWeb = () => {
+const ButtonsWeb = () =>
+{
   const {
     gameStarted,
     setGameStarted,
@@ -14,8 +14,9 @@ const ButtonsWeb = () => {
     handleSave,
     currentUser
   } = useGameContext();
-  
-  const handlePlay = () => {
+
+  const handlePlay = () =>
+  {
     setGameStarted(true);
     restartGame();
   }
@@ -30,13 +31,13 @@ const ButtonsWeb = () => {
       />
 
       <img
-        src={gameStarted ? 'assets/modal/buttons/playagain.png' : 'assets/modal/buttons/play.png' }
+        src={gameStarted ? 'assets/modal/buttons/playagain.png' : 'assets/modal/buttons/play.png'}
         alt="Restart"
         onClick={handlePlay}
         className="cursor-pointer hover:opacity-80 w-28 justify-self-center"
       />
 
-      { currentUser && currentUser!.lastRound && <img
+      {currentUser && currentUser!.lastRound && <img
         src="assets/images/load_btn.png"
         alt="Load"
         onClick={() => currentUser!.lastRound && handleLoad()}
@@ -44,7 +45,7 @@ const ButtonsWeb = () => {
       />
       }
 
-      {gameStarted &&<img
+      {gameStarted && <img
         src="assets/images/save_btn.png"
         alt="Save"
         onClick={() => gameStarted && handleSave()}
@@ -57,7 +58,7 @@ const ButtonsWeb = () => {
       >
         Next
       </button> */}
-      
+
       {/* <button
         className="bg-[#2a2b3c] hover:bg-[#3a3b4c] text-white px-4 py-2 rounded-md transition-colors duration-200 cursor-pointer"
         onClick={setBGMusicTime}
