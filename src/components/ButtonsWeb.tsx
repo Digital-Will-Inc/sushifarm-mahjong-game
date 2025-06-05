@@ -1,4 +1,5 @@
 import { useGameContext } from "src/context/gameContext";
+import Tooltip from "src/components/Tooltip";
 
 const ButtonsWeb = () =>
 {
@@ -6,10 +7,7 @@ const ButtonsWeb = () =>
     gameStarted,
     setGameStarted,
     restartGame,
-    setShowConfirmModal,
     handleHintSelected,
-    startNextRound,
-    setBGMusicTime,
     handleLoad,
     handleSave,
     currentUser
@@ -19,70 +17,53 @@ const ButtonsWeb = () =>
   {
     setGameStarted(true);
     restartGame();
-  }
+  };
 
   return (
-    <div className="gap-4 hidden lg:grid grid-cols-2 justify-center">
-      <img
-        src="assets/modal/buttons/Hint.png"
-        alt="Hint"
-        onClick={handleHintSelected}
-        className="cursor-pointer hover:opacity-80 w-28 justify-self-center"
-      />
+    <div className="hidden lg:flex gap-4 justify-center py-4">
+      {gameStarted && (
+        <Tooltip text="Get a clue">
+          <button
+            onClick={handleHintSelected}
+            className="px-6 py-2 rounded-xl bg-gradient-to-br from-[#E0B0FF]/80 to-[#D8A2E8]/80 border border-white/20 shadow hover:from-[#D8A2E8] hover:to-[#E0B0FF] transition text-[#4A2C1A] font-semibold text-base backdrop-blur-sm"
+          >
+            💡 Hint
+          </button>
+        </Tooltip>
+      )}
 
-      <img
-        src={gameStarted ? 'assets/modal/buttons/playagain.png' : 'assets/modal/buttons/play.png'}
-        alt="Restart"
-        onClick={handlePlay}
-        className="cursor-pointer hover:opacity-80 w-28 justify-self-center"
-      />
+      <Tooltip text={gameStarted ? "Restart the game" : "Start playing"}>
+        <button
+          onClick={handlePlay}
+          className="px-6 py-2 rounded-xl bg-gradient-to-br from-[#8B4513]/90 via-[#704337]/90 to-[#5D2E1F]/90 border border-white/20 shadow hover:from-orange-400 hover:to-yellow-400 hover:text-[#4A2C1A] transition text-white font-semibold text-base backdrop-blur-sm"
+        >
+          {gameStarted ? "🔄 Play Again" : "▶️ Play"}
+        </button>
+      </Tooltip>
 
-      {currentUser && currentUser!.lastRound && <img
-        src="assets/images/load_btn.png"
-        alt="Load"
-        onClick={() => currentUser!.lastRound && handleLoad()}
-        className="cursor-pointer hover:opacity-80 w-28 justify-self-center"
-      />
-      }
+      {currentUser?.lastRound && (
+        <Tooltip text="Continue">
+          <button
+            onClick={handleLoad}
+            className="px-6 py-2 rounded-xl bg-gradient-to-br from-orange-100/80 to-pink-100/80 border border-orange-300/40 shadow hover:from-orange-200 hover:to-pink-200 transition text-[#8B4513] font-semibold text-base backdrop-blur-sm"
+          >
+            ⬆️ Load
+          </button>
+        </Tooltip>
+      )}
 
-      {gameStarted && <img
-        src="assets/images/save_btn.png"
-        alt="Save"
-        onClick={() => gameStarted && handleSave()}
-        className="cursor-pointer hover:opacity-80 w-28 justify-self-center"
-      />}
-
-      {/* <button
-        className="bg-[#2a2b3c] hover:bg-[#3a3b4c] text-white px-4 py-2 rounded-md transition-colors duration-200 cursor-pointer"
-        onClick={startNextRound}
-      >
-        Next
-      </button> */}
-
-      {/* <button
-        className="bg-[#2a2b3c] hover:bg-[#3a3b4c] text-white px-4 py-2 rounded-md transition-colors duration-200 cursor-pointer"
-        onClick={setBGMusicTime}
-      >
-        Set
-      </button> */}
-      {/* <button
-        className="bg-[#2a2b3c] hover:bg-[#3a3b4c] text-white px-4 py-2 rounded-md transition-colors duration-200 cursor-pointer"
-        onClick={handleHintSelected}
-      >
-        Hint
-      </button> */}
-      {/* <button
-        className={`px-4 py-2 rounded-md transition-colors duration-200 cursor-pointer ${
-          !gameStarted
-            ? "bg-green-600 hover:bg-green-400"
-            : "bg-[#2a2b3c] hover:bg-[#3a3b4c]"
-        } text-white`}
-        onClick={ ()=> gameStarted ? setShowConfirmModal(true) : handlePlay() }
-      >
-        {gameStarted ? "Restart" : "Play"}
-      </button> */}
+      {gameStarted && (
+        <Tooltip text="Save progress">
+          <button
+            onClick={handleSave}
+            className="px-6 py-2 rounded-xl bg-gradient-to-br from-orange-200/80 to-pink-200/80 border border-pink-300/40 shadow hover:from-orange-300 hover:to-pink-300 transition text-[#8B4513] font-semibold text-base backdrop-blur-sm"
+          >
+            💾 Save
+          </button>
+        </Tooltip>
+      )}
     </div>
-  )
-}
+  );
+};
 
 export default ButtonsWeb;
