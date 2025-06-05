@@ -22,6 +22,13 @@ interface layerCards
   array_size: number //cardboard array size for this layer
 }
 
+const defaultProgressBorderSettings = {
+  strokeWidth: 20,
+  color: "#FFD700",
+  borderRadius: 36,
+  variant: "rainbow",
+  position: "behind"
+};
 type LeaderBoard = LeaderboardUser[];
 
 type GameContextType = {
@@ -37,6 +44,7 @@ type GameContextType = {
   rollbackAvailable: boolean;
   rollbackPressed: boolean;
   gameStarted: boolean;
+  gameRestarted: boolean;
   topCards: CardNode[];
   hintCards: CardNode[];
   isHint: boolean;
@@ -58,6 +66,8 @@ type GameContextType = {
   setStackedScore: (n: number) => void;
   setBGMusicTime: () => void;
   setShowSettingsModal: (f: boolean) => void;
+  progressBorderSettings(): typeof defaultProgressBorderSettings;
+  setProgressBorderSettings: (settings: typeof defaultProgressBorderSettings) => void;
   removeJokerPair: (n: number) => void;
   setJokerClaimed: (f: boolean) => void;
   setMusicOff: (f: boolean) => void;
@@ -110,6 +120,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   const [rollbackAvailable, setRollbackAvailable] = useState(false);
   const [rollbackPressed, setRollbackPressed] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [gameRestarted, setGameRestarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [jokerClaimed, setJokerClaimed] = useState(false);
   const [highlighted, setHighlighted] = useState(false);
@@ -131,6 +142,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   const [stackedScore, setStackedScore] = useState(0);
   const [cardSize, setCardSize] = useState(40);
   const [loading, setLoading] = useState(false);
+  const [progressBorderSettings, setProgressBorderSettings] = useState(defaultProgressBorderSettings);
   const TotalCardsType = 22;
 
   const [currentUser, setCurrentUser] = useState<User | null>({
@@ -763,6 +775,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     setHighlighted(false);
     setGameOver(false);
     setGameStarted(true);
+    setGameRestarted(false);
     setBucket([]);
     setAdditionalSlots([]);
     setRollbackAvailable(false);
@@ -911,6 +924,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       bucket,
       additionalSlots,
       lives,
+      gameRestarted,
       cards,
       leaderBoard,
       isConnected: true,
@@ -936,6 +950,8 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       showGuide,
       layerNumber,
       loading,
+      progressBorderSettings: () => progressBorderSettings,
+      setProgressBorderSettings,
       setCardSize,
       setShowGuide,
       setStackedScore,
@@ -981,6 +997,8 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       currentUser,
       maxBucket,
       gameOver,
+      progressBorderSettings,
+      setProgressBorderSettings,
       showConfirmModal,
       showEditModal,
       soundOff,
@@ -988,6 +1006,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       hintCards,
       isHint,
       gameStarted,
+      gameRestarted,
       currentRound,
       bucket,
       additionalSlots,

@@ -1,84 +1,77 @@
-import { useState, useEffect } from 'react'
-import { FaTimes } from 'react-icons/fa'
+import { FaTimes } from 'react-icons/fa';
 import { useGameContext } from 'src/context/gameContext';
-import { User } from 'src/types/type';
+import ProgressBorderCustomizer from './ProgressBorderCustomizer';
 
-const Settings = () => {
+const Settings = () =>
+{
   const {
-    currentUser,
     soundOff,
     musicOff,
     setMusicOff,
     setSoundOff,
     setShowSettingsModal,
-    changeUserName
+    progressBorderSettings,
+    setProgressBorderSettings
   } = useGameContext();
-  const [username, setUsername] = useState(currentUser?.username!);
-  const [checkingName, setCheckingName] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [invalid, setInvalid] = useState(false);
-
-  const validateCheck = (username: string) : boolean => {
-    const regex = /^[a-zA-Z0-9 ]+$/;
-    return regex.test(username);
-  }
-
-  const isValidUserName = async (username : string) : Promise<boolean> => {
-    setCheckingName(true);
-    const response = await fetch(`/api/checkusername?username=${username}`, { method: "GET" });
-    if(response.ok) { 
-      setCheckingName(false);
-      const data: User[] = await response.json();
-      if(data.length == 1) {
-        if(data[0].email == currentUser?.email) return true;
-        else return false;
-      }
-      else return false;
-    }
-    else if(response.status == 404) {
-      setCheckingName(false);
-      return true;
-    }
-    else {
-      setCheckingName(false);
-      return false;
-    }
-  }
 
   return (
-    <div className="fixed top-0 left-0 right-0 bottom-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div
-        className="relative bg-contain bg-no-repeat rounded-lg shadow-lg overflow-hidden mx-auto w-[330px] h-[178px] flex items-end align-bottom p-8"
-        style={{
-          backgroundImage: `url(assets/modal/setting/setting.png)`,
-        }}
-      >
-        <FaTimes 
-          onClick={() => setShowSettingsModal(false)}
-          className="absolute text-gray-500 hover:text-gray-800 cursor-pointer hover:opacity-80 top-4 right-4 w-4 h-4"
-        />
-        <img 
-          src={`assets/modal/setting/${musicOff ? 'off.png' : 'on.png'}`}
-          className='absolute cursor-pointer w-10 h-6'
-          style={{
-            top: '80px',
-            left: '185px'
-          }}
-          onClick={()=>setMusicOff(!musicOff)}
-        />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="
+        relative w-full max-w-md rounded-2xl shadow-2xl border border-white/20
+        bg-gradient-to-br from-[#e0b0ff]/95 via-white/90 to-[#ffe5ec]/95
+        p-0 overflow-hidden
+      ">
+        {/* Decorative gradient top bar */}
+        <div className="h-2 w-full bg-gradient-to-r from-orange-400 via-yellow-300 to-pink-300" />
 
-        <img 
-          src={`assets/modal/setting/${soundOff ? 'off.png' : 'on.png'}`}
-          className='absolute cursor-pointer w-10 h-6'
-          style={{
-            top: '113px',
-            left: '185px'
-          }}
-          onClick={()=>setSoundOff(!soundOff)}
-        />
+        {/* Close button */}
+        <button
+          onClick={() => setShowSettingsModal(false)}
+          className="absolute top-4 right-4 text-gray-500 hover:text-pink-400 bg-white/40 rounded-full p-1 shadow"
+          aria-label="Close"
+        >
+          <FaTimes size={20} />
+        </button>
+
+        {/* Modal Content */}
+        <div className="flex flex-col gap-6 px-8 py-8">
+          {/* Header */}
+          <h2 className="text-xl font-bold text-center text-[#8B4513] drop-shadow-sm">Settings</h2>
+
+          {/* Toggles */}
+          <div className="flex flex-col gap-4 items-center">
+            <div className="flex items-center gap-3">
+              <span className="font-medium text-[#704337]">Music</span>
+              <img
+                src={`assets/modal/setting/${musicOff ? 'off.png' : 'on.png'}`}
+                alt="Music toggle"
+                className="cursor-pointer w-10 h-6 drop-shadow-md hover:scale-105 transition"
+                onClick={() => setMusicOff(!musicOff)}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-medium text-[#704337]">Sound</span>
+              <img
+                src={`assets/modal/setting/${soundOff ? 'off.png' : 'on.png'}`}
+                alt="Sound toggle"
+                className="cursor-pointer w-10 h-6 drop-shadow-md hover:scale-105 transition"
+                onClick={() => setSoundOff(!soundOff)}
+              />
+            </div>
+          </div>
+
+          {/* Progress Border Customizer */}
+          <ProgressBorderCustomizer
+            settings={progressBorderSettings}
+            onChange={setProgressBorderSettings}
+          />
+        </div>
+
+        {/* Decorative gradient bottom bar */}
+        <div className="h-1 w-full bg-gradient-to-r from-transparent via-pink-200 to-transparent" />
       </div>
     </div>
-  )
-}
+  );
+};
 
 export default Settings;

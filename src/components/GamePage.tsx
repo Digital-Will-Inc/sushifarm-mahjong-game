@@ -114,7 +114,7 @@ const GameBoard = () =>
           <Bucket />
           {currentUser && <ButtonsMobile />}
           {/* <ButtonsMobile /> */}
-          <LeaderBoard />
+          {/* <LeaderBoard /> */}
         </div>
         <div className="max-w-[1280px] mx-auto hidden lg:flex lg:flex-row gap-4 h-full">
           {/* Left Section: Game Info, Card Board */}
@@ -139,7 +139,7 @@ const GameBoard = () =>
             <div>
               {currentUser && <ButtonsWeb />}
               {/* <ButtonsWeb /> */}
-              <LeaderBoard />
+              {/* <LeaderBoard /> */}
             </div>
           </div>
         </div>
