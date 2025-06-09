@@ -8,6 +8,7 @@ import React, {
   useRef
 } from "react";
 import { User, CardNode, Round, LeaderboardUser } from "src/types/type";
+import { useWortal } from "./wortalContext";
 
 interface position
 {
@@ -22,13 +23,22 @@ interface layerCards
   array_size: number //cardboard array size for this layer
 }
 
-const defaultProgressBorderSettings = {
+type ProgressBorderSettings = {
+  strokeWidth: number;
+  color: string;
+  borderRadius: number;
+  variant: 'rainbow' | 'glow' | 'pulse' | 'gradient';
+  position: 'overlay' | 'behind' | 'inset';
+};
+
+const defaultProgressBorderSettings: ProgressBorderSettings = {
   strokeWidth: 20,
   color: "#FFD700",
   borderRadius: 36,
   variant: "rainbow",
   position: "behind"
 };
+
 type LeaderBoard = LeaderboardUser[];
 
 type GameContextType = {
@@ -66,8 +76,8 @@ type GameContextType = {
   setStackedScore: (n: number) => void;
   setBGMusicTime: () => void;
   setShowSettingsModal: (f: boolean) => void;
-  progressBorderSettings(): typeof defaultProgressBorderSettings;
-  setProgressBorderSettings: (settings: typeof defaultProgressBorderSettings) => void;
+  progressBorderSettings: ProgressBorderSettings;
+  setProgressBorderSettings: (settings: ProgressBorderSettings) => void;
   removeJokerPair: (n: number) => void;
   setJokerClaimed: (f: boolean) => void;
   setMusicOff: (f: boolean) => void;
@@ -101,6 +111,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider = ({ children }: PropsWithChildren) =>
 {
+  const wortal = useWortal();
   const initialRound: Round = { roundNumber: 1, cardTypeNumber: 4, deepLayer: 3, difficulty: false, typeOffest: 0, totalCards: 12 };
   const [currentRound, setCurrentRound] = useState<Round>(initialRound);
   const [bucket, setBucket] = useState<CardNode[]>([]);
@@ -142,7 +153,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   const [stackedScore, setStackedScore] = useState(0);
   const [cardSize, setCardSize] = useState(40);
   const [loading, setLoading] = useState(false);
-  const [progressBorderSettings, setProgressBorderSettings] = useState(defaultProgressBorderSettings);
+  const [progressBorderSettings, setProgressBorderSettings] = useState<ProgressBorderSettings>(defaultProgressBorderSettings);
   const TotalCardsType = 22;
 
   const [currentUser, setCurrentUser] = useState<User | null>({
@@ -253,7 +264,28 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
   const fetchLeaderboard = async () =>
   {
-    // No-op since we're removing leaderboard functionality
+    if (!wortal.isWortalAvailable) return;
+
+    try
+    {
+      const entries = await wortal.getLeaderboardEntries('global_leaderboard', 10, 0);
+      const formattedEntries = entries.map((entry) =>
+      ({
+        id: entry.player.id,
+        username: entry.player.name || 'Anonymous',
+        score: entry.score,
+        rank: entry.rank,
+        current_score: entry.score,
+        email: '',
+        isVIP: false,
+        top_score: entry.score,
+        wallet: ''
+      }));
+      setLeaderBoard(formattedEntries);
+    } catch (error)
+    {
+      console.error('Error fetching leaderboard:', error);
+    }
   };
 
   const setBGMusicTime = () =>
@@ -263,13 +295,30 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
   const registerUser = async (email: string = 'local@player.com', userName: string = 'Player') =>
   {
-    setCurrentUser({
-      id: '1',
-      email: email,
-      username: userName,
-      score: 0,
-      lastRound: false
-    });
+    if (wortal.isWortalAvailable && wortal.player)
+    {
+      setCurrentUser({
+        id: wortal.player.id,
+        email: email,
+        username: userName,
+        score: 0,
+        lastRound: false
+      });
+
+      if (wortal.player.isFirstPlay)
+      {
+        wortal.logTutorialStart('game_tutorial');
+      }
+    } else
+    {
+      setCurrentUser({
+        id: '1',
+        email: email,
+        username: userName,
+        score: 0,
+        lastRound: false
+      });
+    }
   };
 
   const changeUserName = async (email: string, userName: string) =>
@@ -733,8 +782,38 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
   const sendScore = async (newScore: number) =>
   {
-    // No-op since we're removing score tracking
-    setStackedScore(0); // Just reset the stacked score
+    if (!wortal.isWortalAvailable)
+    {
+      setStackedScore(0);
+      return;
+    }
+
+    try
+    {
+      // Submit to Wortal leaderboard
+      await wortal.setScore('global_leaderboard', newScore, `Round ${currentRound.roundNumber}`);
+
+      // Log the score
+      wortal.logScore(newScore.toString());
+
+      // Save to Wortal player data
+      const currentData = await wortal.getPlayerData(['highScore', 'currentRound']);
+      if (newScore > (currentData.highScore || 0))
+      {
+        await wortal.setPlayerData({
+          ...currentData,
+          highScore: newScore,
+          currentRound: currentRound.roundNumber,
+          lastPlayed: Date.now()
+        });
+      }
+
+      setStackedScore(0);
+    } catch (error)
+    {
+      console.error('Failed to send score:', error);
+      setStackedScore(0);
+    }
   };
 
   const removeJokerPair = (_type: number) =>
@@ -759,6 +838,14 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
   const restartGame = () =>
   {
+    if (gameStarted && wortal.isWortalAvailable)
+    {
+      wortal.logLevelEnd(
+        `round_${currentRound.roundNumber}`,
+        score.toString(),
+        false // Game was restarted, not completed
+      );
+    }
     if (backgroundMusic && !isPlaying && !musicOff)
     {
       backgroundMusic
@@ -880,41 +967,106 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
   const handleSave = async () =>
   {
-    // Store game state in localStorage instead of backend
-    const gameState = {
-      currentRound,
-      score,
-      currentUser
-    };
-    localStorage.setItem('gameState', JSON.stringify(gameState));
+    if (!wortal.isWortalAvailable)
+    {
+      // Fallback to localStorage
+      const gameState = {
+        currentRound,
+        score,
+        currentUser
+      };
+      localStorage.setItem('gameState', JSON.stringify(gameState));
+      return;
+    }
+
+    try
+    {
+      const gameState = {
+        currentRound,
+        score,
+        lives,
+        bucket: bucket.map(card => ({ ...card, parents: [] })), // Simplify for storage
+        additionalSlots: additionalSlots.map(card => ({ ...card, parents: [] })),
+        cards: cards.map(card => ({ ...card, parents: [] })),
+        currentUser,
+        timestamp: Date.now()
+      };
+
+      await wortal.setPlayerData({
+        savedGame: gameState
+      });
+      await wortal.flushPlayerData();
+
+      console.log('Game saved to Wortal');
+    } catch (error)
+    {
+      console.error('Failed to save game:', error);
+    }
   };
 
   const handleLoad = async () =>
   {
-    // Load game state from localStorage
-    const savedState = localStorage.getItem('gameState');
-    if (savedState)
+    if (!wortal.isWortalAvailable)
     {
-      const { currentRound: savedRound, score: savedScore, currentUser: savedUser } = JSON.parse(savedState);
-      setCurrentRound(savedRound);
-      setScore(savedScore);
-      setStackedScore(0);
-      generateCards(savedRound);
-      setGameStarted(true);
-
-      setBucket([]);
-      if (savedRound.roundNumber > 4) setMaxBucketCount(8);
-      else setMaxBucketCount(7);
-
-      setAdditionalSlots([]);
-      setRollbackAvailable(false);
-      setRollbackPressed(false);
-      setSlotAvailablity(true);
-
-      if (savedUser)
+      // Fallback to localStorage
+      const savedState = localStorage.getItem('gameState');
+      if (savedState)
       {
-        setCurrentUser(savedUser);
+        const { currentRound: savedRound, score: savedScore, currentUser: savedUser } = JSON.parse(savedState);
+        setCurrentRound(savedRound);
+        setScore(savedScore);
+        setStackedScore(0);
+        generateCards(savedRound);
+        setGameStarted(true);
+        setBucket([]);
+        if (savedRound.roundNumber > 4) setMaxBucketCount(8);
+        else setMaxBucketCount(7);
+        setAdditionalSlots([]);
+        setRollbackAvailable(false);
+        setRollbackPressed(false);
+        setSlotAvailablity(true);
+        if (savedUser)
+        {
+          setCurrentUser(savedUser);
+        }
       }
+      return;
+    }
+
+    try
+    {
+      const data = await wortal.getPlayerData(['savedGame']);
+      if (data.savedGame)
+      {
+        const gameState = data.savedGame;
+        setCurrentRound(gameState.currentRound);
+        setScore(gameState.score);
+        setLives(gameState.lives);
+        setStackedScore(0);
+
+        // Generate new cards instead of loading old positions
+        generateCards(gameState.currentRound);
+        setGameStarted(true);
+
+        setBucket([]);
+        if (gameState.currentRound.roundNumber > 4) setMaxBucketCount(8);
+        else setMaxBucketCount(7);
+
+        setAdditionalSlots([]);
+        setRollbackAvailable(false);
+        setRollbackPressed(false);
+        setSlotAvailablity(true);
+
+        if (gameState.currentUser)
+        {
+          setCurrentUser(gameState.currentUser);
+        }
+
+        console.log('Game loaded from Wortal');
+      }
+    } catch (error)
+    {
+      console.error('Failed to load game:', error);
     }
   };
 
@@ -950,7 +1102,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       showGuide,
       layerNumber,
       loading,
-      progressBorderSettings: () => progressBorderSettings,
+      progressBorderSettings: progressBorderSettings,
       setProgressBorderSettings,
       setCardSize,
       setShowGuide,

@@ -197,11 +197,11 @@ const CardBoard = () =>
         <ProgressBorder
           progress={progress}
           size={cardBoardWidth + 40}
-          strokeWidth={progressBorderSettings().strokeWidth}
-          color={progressBorderSettings().color}
-          borderRadius={progressBorderSettings().borderRadius}
-          variant={progressBorderSettings().variant as "rainbow" | "glow" | "pulse" | "gradient"}
-          position={progressBorderSettings().position as "behind" | "overlay" | "inset"}
+          strokeWidth={progressBorderSettings.strokeWidth}
+          color={progressBorderSettings.color}
+          borderRadius={progressBorderSettings.borderRadius}
+          variant={progressBorderSettings.variant as 'rainbow' | 'glow' | 'pulse' | 'gradient'}
+          position={progressBorderSettings.position as 'behind' | 'overlay' | 'inset'}
         />
       )}
 

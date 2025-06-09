@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useGameContext } from "src/context/gameContext";
+import { useWortal } from "src/context/wortalContext";
 import
 {
   ButtonsMobile,
@@ -43,6 +44,8 @@ const GameBoard = () =>
     fetchLeaderboard,
     cardBoardWidth
   } = useGameContext();
+
+  const wortal = useWortal();
 
   const [showCongrats, setShowCongrats] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
@@ -144,7 +147,10 @@ const GameBoard = () =>
           </div>
         </div>
         {showCongrats && (
-          <CongratesModal handleClick={handleNextRound} />
+          <>
+            {wortal.showInterstitialAd('next', 'NextLevel')}
+            <CongratesModal handleClick={handleNextRound} />
+          </>
         )}
       </div>
       {gameOver && <FailedModal handleClick={restartGame} />}

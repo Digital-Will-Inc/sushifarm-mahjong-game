@@ -62,7 +62,7 @@ const Settings = () =>
 
           {/* Progress Border Customizer */}
           <ProgressBorderCustomizer
-            settings={progressBorderSettings}
+            settings={progressBorderSettings} //i got error here :' that make me cant build the app
             onChange={setProgressBorderSettings}
           />
         </div>
