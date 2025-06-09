@@ -251,7 +251,7 @@ export const WortalProvider = ({ children }: PropsWithChildren) =>
             setPlatform(window.Wortal.session.getPlatform());
             setLocale(window.Wortal.session.getLocale());
             setOrientation(window.Wortal.session.getOrientation());
-            // setEntryPoint(window.Wortal.session.getEntryPoint());
+            // setEntryPoint(window.Wortal.session.getEntryPoint()); //uncomment later when building for wortal
 
             // Check ad blocker
             setIsAdBlocked(window.Wortal.ads.isAdBlocked());
@@ -364,7 +364,7 @@ export const WortalProvider = ({ children }: PropsWithChildren) =>
         if (!isWortalAvailable) return null;
         try
         {
-            return await window.Wortal.leaderboard.setScoreAsync(name, score, details);
+            // return await window.Wortal.leaderboard.setScoreAsync(name, score, details);
         } catch (err)
         {
             console.error('Failed to set score:', err);

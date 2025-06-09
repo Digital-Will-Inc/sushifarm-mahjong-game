@@ -25,13 +25,16 @@ body {
   font-family: 'Poppins';
   background: linear-gradient(135deg, #ff7e5f, #feb47b);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
-/* Main Game Container */
+/* Responsive Game Container */
 .game-container {
-  width: 1200px;
-  height: 800px;
-  border-radius: 15px;
+  width: 100%;
+  max-width: 1200px;
+  height: 100vh;
+  min-height: 600px;
+  border-radius: clamp(8px, 2vw, 15px);
   box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
   position: relative;
   display: flex;
@@ -39,70 +42,89 @@ body {
   align-items: center;
   text-align: center;
   justify-content: center;
-  padding: 20px;
+  padding: clamp(10px, 3vw, 20px);
 }
 
-/* Cards Container */
+/* Responsive Cards Container */
 .cards-container {
-  width: 80%;
-  height: 600px;
-  margin-top: 50px;
+  width: 100%;
+  max-width: 90%;
+  height: auto;
+  aspect-ratio: 1;
+  margin-top: clamp(20px, 5vw, 50px);
   position: relative;
 }
 
-/* Card Styles */
+/* Responsive Card Styles */
 .card {
   background-size: cover;
   background-position: center;
   cursor: pointer;
-  width: 80px; /* Adjusted size */
-  height: 80px; /* Adjusted size */
+  width: clamp(30px, 8vw, 80px);
+  height: clamp(30px, 8vw, 80px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease;
+  border-radius: clamp(4px, 1vw, 8px);
 }
 
 .card:hover {
   transform: scale(1.05);
 }
 
-/* Bucket and Additional Slots */
+/* Responsive Bucket and Additional Slots */
 .bucket-container {
   width: 100%;
-  margin-top: 50px;
+  margin-top: clamp(20px, 5vw, 50px);
   display: flex;
-  justify-content: flex-start;
-  gap: 20px;
-  padding-top: 20px;
+  flex-direction: column;
+  gap: clamp(10px, 3vw, 20px);
+  padding-top: clamp(10px, 3vw, 20px);
+}
+
+@media (min-width: 768px) {
+  .bucket-container {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
 }
 
 .bucket,
 .slots {
-  width: 45%;
-  height: 80px; /* Adjusted size */
-  padding: 10px;
+  width: 100%;
+  min-height: clamp(60px, 10vw, 80px);
+  padding: clamp(8px, 2vw, 10px);
   background-color: rgba(0, 0, 0, 0.1);
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
   align-items: center;
-  border-radius: 8px;
+  border-radius: clamp(4px, 1vw, 8px);
+}
+
+@media (min-width: 768px) {
+
+  .bucket,
+  .slots {
+    width: 45%;
+  }
 }
 
 .bucket h4,
 .slots h4 {
   position: relative;
-  top: -50px;
-  font-size: 1.1em;
+  top: clamp(-30px, -5vw, -50px);
+  font-size: clamp(0.9rem, 2.5vw, 1.1rem);
   font-weight: bold;
   color: #333;
 }
 
 .control-button {
-  padding: 3px 5px;
-  background-color:rgba(0, 0, 0, 0.2);
+  padding: clamp(2px, 1vw, 3px) clamp(3px, 1.5vw, 5px);
+  background-color: rgba(0, 0, 0, 0.2);
   color: white;
-  font-size: medium;
-  margin: 5px;
+  font-size: clamp(0.8rem, 2vw, 1rem);
+  margin: clamp(3px, 1vw, 5px);
+  border-radius: clamp(2px, 0.5vw, 4px);
 }
 
 .clip-arrow {
@@ -111,4 +133,32 @@ body {
 
 .clip-arrow1 {
   clip-path: polygon(0% 0%, 90% 0%, 99% 50%, 90% 100%, 0% 100%);
+}
+
+/* Mobile optimizations */
+@media (max-width: 767px) {
+  body {
+    font-size: 14px;
+  }
+
+  .game-container {
+    height: 100vh;
+    padding: 8px;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .game-container {
+    max-width: 90%;
+    margin: 0 auto;
+  }
+}
+
+/* Desktop optimizations */
+@media (min-width: 1024px) {
+  .game-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
 }
