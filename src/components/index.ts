@@ -6,7 +6,6 @@ export { default as CardBoard } from './CardBoard'
 export { default as GameInfo } from './GameInfo'
 export { default as LeaderBoard } from './LeaderBoard'
 export { default as Header } from './Header'
-export { default as HomePage } from './HomePage'
 export { 
   CongratesModal,
   ConfirmModal,
