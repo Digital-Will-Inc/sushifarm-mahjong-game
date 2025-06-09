@@ -235,8 +235,8 @@ const CardBoard = () =>
             <div
               key={`c+${index}`}
               className={`absolute rounded-md ${card.state === "available"
-                ? "bg-gradient-to-br from-white/30 to-white/20 backdrop-blur-sm border border-white/30 shadow-xl cursor-pointer hover:scale-110 hover:shadow-2xl hover:border-orange-400/50 transform"
-                : "bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm border border-gray-600/30 shadow-lg"
+                ? "bg-gradient-to-br from-white/50 to-white/40 backdrop-blur-sm border border-white/50 shadow-xl cursor-pointer hover:scale-110 hover:shadow-2xl hover:border-orange-400/70 transform"
+                : "bg-gradient-to-br from-gray-400/50 to-gray-500/50 backdrop-blur-sm border border-gray-300/50 shadow-lg"
                 }`}
               style={{
                 top: `${card.top + card.offset}px`,
@@ -258,14 +258,14 @@ const CardBoard = () =>
 
               {/* Card overlay effects */}
               {card.state === "available" ? (
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/10 rounded-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 rounded-xl"></div>
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-black/60 rounded-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-400/30 to-gray-500/40 rounded-xl"></div>
               )}
 
               {/* Interactive card glow effect */}
               {card.state === "available" && (
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-yellow-400/0 to-yellow-400/0 hover:from-yellow-400/20 hover:to-orange-400/20 transition-all duration-200"></div>
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-yellow-400/0 to-yellow-400/0 hover:from-yellow-400/30 hover:to-orange-400/30 transition-all duration-200"></div>
               )}
             </div>
           ))}
