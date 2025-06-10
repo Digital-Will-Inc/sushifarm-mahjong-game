@@ -17,18 +17,28 @@ const Header = () =>
   } = useGameContext();
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
   const [isDropdownOpen, setDropdownOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [containerDimensions, setContainerDimensions] = useState({ width: 400, height: 70 });
 
   useEffect(() =>
   {
-    const checkMobile = () =>
+    const updateDimensions = () =>
     {
-      setIsMobile(window.innerWidth < 768);
+      if (headerRef.current)
+      {
+        const rect = headerRef.current.getBoundingClientRect();
+        setContainerDimensions({ width: rect.width, height: rect.height });
+      }
     };
 
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
+    updateDimensions();
+
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    if (headerRef.current)
+    {
+      resizeObserver.observe(headerRef.current);
+    }
 
     const handleClickOutside = (event: MouseEvent) =>
     {
@@ -42,10 +52,29 @@ const Header = () =>
 
     return () =>
     {
-      window.removeEventListener('resize', checkMobile);
+      resizeObserver.disconnect();
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Calculate responsive sizes based on container dimensions
+  const responsiveSizes = {
+    // Logo size: 12-15% of container height, min 24px, max 48px
+    logoSize: Math.max(24, Math.min(48, containerDimensions.height * 0.14)),
+    // Button size: 10-12% of container height, min 20px, max 40px  
+    buttonSize: Math.max(20, Math.min(40, containerDimensions.height * 0.12)),
+    // Avatar size: 8-10% of container height, min 20px, max 36px
+    avatarSize: Math.max(20, Math.min(36, containerDimensions.height * 0.09)),
+    // Font sizes based on container height
+    titleFontSize: Math.max(12, Math.min(18, containerDimensions.height * 0.22)),
+    subtitleFontSize: Math.max(8, Math.min(12, containerDimensions.height * 0.15)),
+    usernameFontSize: Math.max(10, Math.min(16, containerDimensions.height * 0.18)),
+    // Padding and gaps
+    padding: Math.max(8, Math.min(24, containerDimensions.width * 0.02)),
+    gap: Math.max(6, Math.min(16, containerDimensions.width * 0.015)),
+    // Accent bar height
+    accentHeight: Math.max(2, Math.min(4, containerDimensions.height * 0.06))
+  };
 
   const toggleDropdown = () =>
   {
@@ -71,47 +100,86 @@ const Header = () =>
   };
 
   return (
-    <div className="relative w-full bg-gradient-to-br from-[#8B4513] via-[#704337] to-[#5D2E1F] shadow-xl">
+    <div ref={headerRef} className="relative w-full bg-gradient-to-br from-[#8B4513] via-[#704337] to-[#5D2E1F] shadow-xl h-full">
       {/* Animated top accent bar */}
-      <div className="h-1 bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 animate-pulse"></div>
+      <div
+        className="bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 animate-pulse"
+        style={{ height: `${responsiveSizes.accentHeight}px` }}
+      ></div>
 
       {/* Main header content */}
-      <div className="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 relative">
+      <div
+        className="flex justify-between items-center relative h-full"
+        style={{
+          paddingLeft: `${responsiveSizes.padding}px`,
+          paddingRight: `${responsiveSizes.padding}px`,
+          paddingTop: `${responsiveSizes.padding * 0.5}px`,
+          paddingBottom: `${responsiveSizes.padding * 0.5}px`
+        }}
+      >
         {/* Subtle background pattern */}
         <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-white/5"></div>
 
         {/* Left side - Enhanced Logo */}
-        <div className="flex items-center gap-3 sm:gap-4 relative z-10">
+        <div
+          className="flex items-center relative z-10"
+          style={{ gap: `${responsiveSizes.gap}px` }}
+        >
           <div className="relative group">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#E0B0FF] to-[#D8A2E8] border-2 border-white shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+            <div
+              className="rounded-full bg-gradient-to-br from-[#E0B0FF] to-[#D8A2E8] border-2 border-white shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300"
+              style={{
+                width: `${responsiveSizes.logoSize}px`,
+                height: `${responsiveSizes.logoSize}px`
+              }}
+            >
               <img
                 src="assets/sushi/22.png"
-                className="w-5 h-5 sm:w-7 sm:h-7 object-contain"
+                className="object-contain"
+                style={{
+                  width: `${responsiveSizes.logoSize * 0.6}px`,
+                  height: `${responsiveSizes.logoSize * 0.6}px`
+                }}
                 alt="Sushi"
               />
             </div>
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-400/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </div>
 
-          {!gameStarted && (
-            <div className="hidden sm:block">
-              <h1 className="text-white font-bold text-lg bg-gradient-to-r from-purple-200 to-pink-200 bg-clip-text text-transparent">
+          {!gameStarted && containerDimensions.width > 300 && (
+            <div>
+              <h1
+                className="text-white font-bold bg-gradient-to-r from-purple-200 to-pink-200 bg-clip-text text-transparent"
+                style={{ fontSize: `${responsiveSizes.titleFontSize}px` }}
+              >
                 Sushi Master
               </h1>
-              <p className="text-white/60 text-xs">Match & Collect</p>
+              <p
+                className="text-white/60"
+                style={{ fontSize: `${responsiveSizes.subtitleFontSize}px` }}
+              >
+                Match & Collect
+              </p>
             </div>
           )}
         </div>
 
         {/* Center - Enhanced Game Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 relative z-10">
+        <div
+          className="flex items-center relative z-10"
+          style={{ gap: `${responsiveSizes.gap * 0.7}px` }}
+        >
           {gameStarted && (
             <button
               onClick={handleHintSelected}
-              className="group relative w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-yellow-400/20 to-orange-400/20 backdrop-blur-sm border border-yellow-400/30 rounded-full flex items-center justify-center hover:scale-110 hover:from-yellow-400/30 hover:to-orange-400/30 transition-all duration-300 shadow-lg"
+              className="group relative bg-gradient-to-br from-yellow-400/20 to-orange-400/20 backdrop-blur-sm border border-yellow-400/30 rounded-full flex items-center justify-center hover:scale-110 hover:from-yellow-400/30 hover:to-orange-400/30 transition-all duration-300 shadow-lg"
+              style={{
+                width: `${responsiveSizes.buttonSize}px`,
+                height: `${responsiveSizes.buttonSize}px`
+              }}
               title="Get a hint"
             >
-              <span className="text-lg sm:text-xl">💡</span>
+              <span style={{ fontSize: `${responsiveSizes.buttonSize * 0.5}px` }}>💡</span>
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-yellow-400/10 to-orange-400/10 blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           )}
@@ -119,10 +187,14 @@ const Header = () =>
           {gameStarted && (
             <button
               onClick={handlePlay}
-              className="group relative w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-400/20 to-blue-400/20 backdrop-blur-sm border border-green-400/30 rounded-full flex items-center justify-center hover:scale-110 hover:from-green-400/30 hover:to-blue-400/30 transition-all duration-300 shadow-lg"
+              className="group relative bg-gradient-to-br from-green-400/20 to-blue-400/20 backdrop-blur-sm border border-green-400/30 rounded-full flex items-center justify-center hover:scale-110 hover:from-green-400/30 hover:to-blue-400/30 transition-all duration-300 shadow-lg"
+              style={{
+                width: `${responsiveSizes.buttonSize}px`,
+                height: `${responsiveSizes.buttonSize}px`
+              }}
               title="Restart the game"
             >
-              <span className="text-lg sm:text-xl">🔄</span>
+              <span style={{ fontSize: `${responsiveSizes.buttonSize * 0.5}px` }}>🔄</span>
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-green-400/10 to-blue-400/10 blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           )}
@@ -130,10 +202,14 @@ const Header = () =>
           {currentUser?.lastRound && (
             <button
               onClick={handleLoad}
-              className="group relative w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-400/20 to-pink-400/20 backdrop-blur-sm border border-purple-400/30 rounded-full flex items-center justify-center hover:scale-110 hover:from-purple-400/30 hover:to-pink-400/30 transition-all duration-300 shadow-lg"
+              className="group relative bg-gradient-to-br from-purple-400/20 to-pink-400/20 backdrop-blur-sm border border-purple-400/30 rounded-full flex items-center justify-center hover:scale-110 hover:from-purple-400/30 hover:to-pink-400/30 transition-all duration-300 shadow-lg"
+              style={{
+                width: `${responsiveSizes.buttonSize}px`,
+                height: `${responsiveSizes.buttonSize}px`
+              }}
               title="Continue"
             >
-              <span className="text-lg sm:text-xl">⬆️</span>
+              <span style={{ fontSize: `${responsiveSizes.buttonSize * 0.5}px` }}>⬆️</span>
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-400/10 to-pink-400/10 blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           )}
@@ -141,10 +217,14 @@ const Header = () =>
           {gameStarted && (
             <button
               onClick={handleSave}
-              className="group relative w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-pink-400/20 to-red-400/20 backdrop-blur-sm border border-pink-400/30 rounded-full flex items-center justify-center hover:scale-110 hover:from-pink-400/30 hover:to-red-400/30 transition-all duration-300 shadow-lg"
+              className="group relative bg-gradient-to-br from-pink-400/20 to-red-400/20 backdrop-blur-sm border border-pink-400/30 rounded-full flex items-center justify-center hover:scale-110 hover:from-pink-400/30 hover:to-red-400/30 transition-all duration-300 shadow-lg"
+              style={{
+                width: `${responsiveSizes.buttonSize}px`,
+                height: `${responsiveSizes.buttonSize}px`
+              }}
               title="Save progress"
             >
-              <span className="text-lg sm:text-xl">💾</span>
+              <span style={{ fontSize: `${responsiveSizes.buttonSize * 0.5}px` }}>💾</span>
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-pink-400/10 to-red-400/10 blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           )}
@@ -154,17 +234,34 @@ const Header = () =>
         <div className="relative z-10" ref={dropdownRef}>
           <button
             onClick={toggleDropdown}
-            className="group flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-lg"
+            className="group flex items-center bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-lg"
+            style={{
+              gap: `${responsiveSizes.gap * 0.7}px`,
+              padding: `${responsiveSizes.padding * 0.3}px ${responsiveSizes.padding * 0.6}px`
+            }}
           >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-400 flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-lg">
+            <div
+              className="rounded-full bg-gradient-to-br from-orange-400 to-pink-400 flex items-center justify-center text-white font-bold shadow-lg"
+              style={{
+                width: `${responsiveSizes.avatarSize}px`,
+                height: `${responsiveSizes.avatarSize}px`,
+                fontSize: `${responsiveSizes.avatarSize * 0.4}px`
+              }}
+            >
               {(currentUser?.username || "P").charAt(0).toUpperCase()}
             </div>
-            {!isMobile && (
-              <span className="font-medium tracking-wide text-sm sm:text-base max-w-24 truncate">
+            {containerDimensions.width > 250 && (
+              <span
+                className="font-medium tracking-wide max-w-24 truncate"
+                style={{ fontSize: `${responsiveSizes.usernameFontSize}px` }}
+              >
                 {currentUser?.username || "Player"}
               </span>
             )}
-            <FaCaretDown className={`text-sm transform transition-all duration-300 ${isDropdownOpen ? 'rotate-180 text-orange-300' : 'text-white/70'}`} />
+            <FaCaretDown
+              className={`transform transition-all duration-300 ${isDropdownOpen ? 'rotate-180 text-orange-300' : 'text-white/70'}`}
+              style={{ fontSize: `${responsiveSizes.usernameFontSize * 0.8}px` }}
+            />
           </button>
 
           {isDropdownOpen && (
@@ -196,7 +293,10 @@ const Header = () =>
 
       {/* Seamless transition element - connects to bucket */}
       <div className="relative">
-        <div className="h-4 bg-gradient-to-b from-[#5D2E1F] to-transparent"></div>
+        <div
+          className="bg-gradient-to-b from-[#5D2E1F] to-transparent"
+          style={{ height: `${responsiveSizes.padding}px` }}
+        ></div>
         <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-transparent to-white/5"></div>
       </div>
 

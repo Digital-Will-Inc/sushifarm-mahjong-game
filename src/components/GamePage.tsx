@@ -19,15 +19,18 @@ import
 
 type LayoutConfig = {
   containerPadding: number;
-  headerHeight: number;
-  bucketHeight: number;
-  gameInfoHeight: number;
-  hudGap: number;
-  cardBoardGap: number;
+  // Changed from fixed heights to ratios
+  headerHeightRatio: number;
+  bucketHeightRatio: number;
+  gameInfoHeightRatio: number;
+  hudGapRatio: number;
+  cardBoardGapRatio: number;
   mobileBreakpoint: number;
   tabletBreakpoint: number;
   gridCols: number;
   gridRows: number;
+  minComponentHeight: number;   // Minimum height for components
+  maxComponentHeight: number;   // Maximum height for components
 };
 
 const GameBoard = () =>
@@ -69,18 +72,21 @@ const GameBoard = () =>
     }
   }, [showCongrats]);
 
-  // Simplified layout configuration
+  // Updated layout configuration with ratios
   const [layoutConfig, setLayoutConfig] = useState<LayoutConfig>({
     containerPadding: 8,
-    headerHeight: 70,
-    bucketHeight: 100,
-    gameInfoHeight: 80,
-    hudGap: 12,
-    cardBoardGap: 8,
+    // These ratios will scale based on screen size
+    headerHeightRatio: 0.08,      // 8% of screen height
+    bucketHeightRatio: 0.12,      // 12% of screen height
+    gameInfoHeightRatio: 0.10,    // 10% of screen height
+    hudGapRatio: 0.015,           // 1.5% of screen height
+    cardBoardGapRatio: 0.02,      // 2% of screen width
     mobileBreakpoint: 768,
     tabletBreakpoint: 1024,
-    gridCols: 10, // Adjust based on your actual game grid
-    gridRows: 10, // Adjust based on your actual game grid
+    gridCols: 10,
+    gridRows: 10,
+    minComponentHeight: 50,       // Minimum height to ensure usability
+    maxComponentHeight: 120,      // Maximum height to prevent oversizing
   });
 
   const [layout, setLayout] = useState({
@@ -90,6 +96,11 @@ const GameBoard = () =>
     cardBoardWidth: 400,
     cardBoardHeight: 400,
     cardSize: 40,
+    headerHeight: 70,
+    bucketHeight: 100,
+    gameInfoHeight: 80,
+    hudGap: 12,
+    cardBoardGap: 8,
     isMobile: true,
     isLandscape: false,
   });
@@ -101,20 +112,43 @@ const GameBoard = () =>
     const isMobile = screenWidth < layoutConfig.mobileBreakpoint;
     const isLandscape = screenWidth > screenHeight;
 
+    // Calculate dynamic heights based on screen size and ratios
+    const baseHeaderHeight = screenHeight * layoutConfig.headerHeightRatio;
+    const baseBucketHeight = screenHeight * layoutConfig.bucketHeightRatio;
+    const baseGameInfoHeight = screenHeight * layoutConfig.gameInfoHeightRatio;
+    const baseHudGap = screenHeight * layoutConfig.hudGapRatio;
+    const baseCardBoardGap = screenWidth * layoutConfig.cardBoardGapRatio;
+
+    // Apply min/max constraints to prevent components from being too small or too large
+    const headerHeight = Math.max(
+      layoutConfig.minComponentHeight,
+      Math.min(layoutConfig.maxComponentHeight, baseHeaderHeight)
+    );
+
+    const bucketHeight = Math.max(
+      layoutConfig.minComponentHeight,
+      Math.min(layoutConfig.maxComponentHeight, baseBucketHeight)
+    );
+
+    const gameInfoHeight = Math.max(
+      layoutConfig.minComponentHeight,
+      Math.min(layoutConfig.maxComponentHeight, baseGameInfoHeight)
+    );
+
+    // Ensure gaps are reasonable
+    const hudGap = Math.max(8, Math.min(20, baseHudGap));
+    const cardBoardGap = Math.max(4, Math.min(16, baseCardBoardGap));
+
     // Container dimensions
     const containerWidth = screenWidth - (layoutConfig.containerPadding * 2);
     const containerHeight = screenHeight - (layoutConfig.containerPadding * 2);
 
-    // Calculate total HUD space requirements
-    const totalHudHeight =
-      layoutConfig.headerHeight +
-      layoutConfig.bucketHeight +
-      layoutConfig.gameInfoHeight +
-      (layoutConfig.hudGap * 3); // Gaps between elements
+    // Calculate total HUD space requirements with dynamic heights
+    const totalHudHeight = headerHeight + bucketHeight + gameInfoHeight + (hudGap * 3);
 
-    // Available space for cardboard (with safety margins)
-    const availableWidth = containerWidth - (layoutConfig.cardBoardGap * 2);
-    const availableHeight = containerHeight - totalHudHeight - (layoutConfig.cardBoardGap * 2);
+    // Available space for cardboard
+    const availableWidth = containerWidth - (cardBoardGap * 2);
+    const availableHeight = containerHeight - totalHudHeight - (cardBoardGap * 2);
 
     // Ensure we have positive dimensions
     const safeAvailableWidth = Math.max(200, availableWidth);
@@ -125,15 +159,14 @@ const GameBoard = () =>
     let cardBoardHeight = safeAvailableHeight;
 
     // Calculate card size based on available cardboard space and grid
-    const cardSizeByWidth = (cardBoardWidth * 0.95) / layoutConfig.gridCols; // 95% to account for internal gaps
+    const cardSizeByWidth = (cardBoardWidth * 0.95) / layoutConfig.gridCols;
     const cardSizeByHeight = (cardBoardHeight * 0.95) / layoutConfig.gridRows;
 
     // Use the smaller dimension to ensure cards fit properly
     const cardSize = Math.min(cardSizeByWidth, cardSizeByHeight);
 
     // Recalculate cardboard dimensions based on optimal card size
-    // This ensures the cardboard uses space efficiently while maintaining proportions
-    const optimalCardBoardWidth = cardSize * layoutConfig.gridCols * 1.05; // Add 5% for gaps
+    const optimalCardBoardWidth = cardSize * layoutConfig.gridCols * 1.05;
     const optimalCardBoardHeight = cardSize * layoutConfig.gridRows * 1.05;
 
     // Use the optimal dimensions if they fit, otherwise use available space
@@ -151,7 +184,12 @@ const GameBoard = () =>
       containerWidth,
       cardBoardWidth: Math.floor(finalCardBoardWidth),
       cardBoardHeight: Math.floor(finalCardBoardHeight),
-      cardSize: Math.floor(Math.max(15, finalCardSize)), // Minimum 15px for visibility
+      cardSize: Math.floor(Math.max(15, finalCardSize)),
+      headerHeight: Math.floor(headerHeight),
+      bucketHeight: Math.floor(bucketHeight),
+      gameInfoHeight: Math.floor(gameInfoHeight),
+      hudGap: Math.floor(hudGap),
+      cardBoardGap: Math.floor(cardBoardGap),
       isMobile,
       isLandscape,
     };
@@ -231,12 +269,12 @@ const GameBoard = () =>
         }}
       >
 
-        {/* Header Section - Fixed Height, Same Width as CardBoard */}
+        {/* Header Section - Dynamic Height, Same Width as CardBoard */}
         <div
           className="flex-shrink-0 flex justify-center"
           style={{
-            height: `${layoutConfig.headerHeight}px`,
-            marginBottom: `${layoutConfig.hudGap}px`,
+            height: `${layout.headerHeight}px`,
+            marginBottom: `${layout.hudGap}px`,
             width: '100%',
           }}
         >
@@ -250,12 +288,12 @@ const GameBoard = () =>
           </div>
         </div>
 
-        {/* Bucket Section - Fixed Height, Same Width as CardBoard */}
+        {/* Bucket Section - Dynamic Height, Same Width as CardBoard */}
         <div
           className="flex-shrink-0 flex justify-center"
           style={{
-            height: `${layoutConfig.bucketHeight}px`,
-            marginBottom: `${layoutConfig.hudGap}px`,
+            height: `${layout.bucketHeight}px`,
+            marginBottom: `${layout.hudGap}px`,
             width: '100%',
           }}
         >
@@ -273,8 +311,8 @@ const GameBoard = () =>
         <div
           className="flex-1 flex items-center justify-center"
           style={{
-            minHeight: 0, // Important for flex child
-            padding: `${layoutConfig.cardBoardGap}px`,
+            minHeight: 0,
+            padding: `${layout.cardBoardGap}px`,
             width: '100%',
           }}
         >
@@ -293,12 +331,12 @@ const GameBoard = () =>
           </div>
         </div>
 
-        {/* GameInfo Section - Fixed Height, Same Width as CardBoard */}
+        {/* GameInfo Section - Dynamic Height, Same Width as CardBoard */}
         <div
           className="flex-shrink-0 flex justify-center"
           style={{
-            height: `${layoutConfig.gameInfoHeight}px`,
-            marginTop: `${layoutConfig.hudGap}px`,
+            height: `${layout.gameInfoHeight}px`,
+            marginTop: `${layout.hudGap}px`,
             width: '100%',
           }}
         >
