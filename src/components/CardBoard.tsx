@@ -39,6 +39,17 @@ const CardBoard = () =>
   // Scale factor for responsive positioning
   const scaleFactor = effectiveBoardSize / (cardBoardWidth - 40);
 
+  // Dynamic button sizes based on board size
+  const buttonPadding = Math.max(effectiveBoardSize * 0.015, 6);
+  const buttonRadius = Math.max(effectiveBoardSize * 0.03, 8);
+  const playIconSize = Math.max(effectiveBoardSize * 0.06, 20);
+  const playTextSize = Math.max(effectiveBoardSize * 0.04, 14);
+
+  // Dynamic title styles based on board size
+  const titlePadding = Math.max(effectiveBoardSize * 0.01, 3);
+  const titleFontSize = Math.max(effectiveBoardSize * 0.025, 10);
+  const titleTopOffset = Math.max(effectiveBoardSize * 0.015, 8);
+
   // Track initial count more reliably
   useEffect(() =>
   {
@@ -225,7 +236,15 @@ const CardBoard = () =>
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-yellow-400/10 via-orange-400/5 to-yellow-400/10 animate-pulse"></div>
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 z-10"></div>
 
-        <div className="absolute top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-1 rounded-full text-white text-sm font-medium shadow-lg z-10">
+        <div
+          className="absolute left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full text-white font-medium shadow-lg z-10 whitespace-nowrap"
+          style={{
+            top: `${titleTopOffset}px`,
+            padding: `${titlePadding * 0.5}px ${titlePadding * 1.2}px`,
+            fontSize: `${titleFontSize}px`,
+            lineHeight: '1',
+          }}
+        >
           Sushi Tower
         </div>
 
@@ -241,15 +260,30 @@ const CardBoard = () =>
               <div className="text-center">
                 <button
                   onClick={handlePlayClick}
-                  className="group relative px-8 py-4 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-2xl shadow-2xl hover:shadow-orange-500/25 transform hover:scale-105 transition-all duration-300"
+                  className="group relative bg-gradient-to-r from-orange-500 to-yellow-500 shadow-2xl hover:shadow-orange-500/25 transform hover:scale-105 transition-all duration-300"
+                  style={{
+                    padding: `${buttonPadding}px ${buttonPadding * 2}px`,
+                    borderRadius: `${buttonRadius}px`,
+                  }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-yellow-600 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div
+                    className="absolute inset-0 bg-gradient-to-r from-orange-600 to-yellow-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{ borderRadius: `${buttonRadius}px` }}
+                  ></div>
                   <div className="relative flex items-center gap-3">
-                    <span className="text-3xl">▶️</span>
-                    <span className="text-white font-bold text-xl">PLAY</span>
+                    <span style={{ fontSize: `${playIconSize}px` }}>▶️</span>
+                    <span
+                      className="text-white font-bold"
+                      style={{ fontSize: `${playIconSize * 0.7}px` }}
+                    >
+                      PLAY
+                    </span>
                   </div>
                 </button>
-                <p className="text-white/80 mt-4 text-sm">
+                <p
+                  className="text-white/80 mt-4"
+                  style={{ fontSize: `${playIconSize * 0.45}px` }}
+                >
                   Match 3 sushi pieces to clear them!
                 </p>
               </div>
@@ -261,8 +295,8 @@ const CardBoard = () =>
             <div
               key={`c+${index}`}
               className={`absolute rounded-xl ${card.state === "available"
-                  ? "bg-gradient-to-br from-white/50 to-white/40 backdrop-blur-sm border border-white/50 shadow-xl cursor-pointer hover:scale-110 hover:shadow-2xl hover:border-orange-400/70 transform"
-                  : "bg-gradient-to-br from-gray-400/50 to-gray-500/50 backdrop-blur-sm border border-gray-300/50 shadow-lg"
+                ? "bg-gradient-to-br from-white/50 to-white/40 backdrop-blur-sm border border-white/50 shadow-xl cursor-pointer hover:scale-110 hover:shadow-2xl hover:border-orange-400/70 transform"
+                : "bg-gradient-to-br from-gray-400/50 to-gray-500/50 backdrop-blur-sm border border-gray-300/50 shadow-lg"
                 }`}
               style={{
                 top: `${(card.top + card.offset) * scaleFactor}px`,

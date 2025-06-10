@@ -61,6 +61,14 @@ const GameBoard = () =>
   const [showCongrats, setShowCongrats] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
 
+  useEffect(() =>
+  {
+    if (showCongrats)
+    {
+      wortal.showInterstitialAd('next', 'NextLevel');
+    }
+  }, [showCongrats]);
+
   // Simplified layout configuration
   const [layoutConfig, setLayoutConfig] = useState<LayoutConfig>({
     containerPadding: 8,
@@ -309,7 +317,6 @@ const GameBoard = () =>
       {/* Modals and Overlays */}
       {showCongrats && (
         <>
-          {wortal.showInterstitialAd('next', 'NextLevel')}
           <CongratesModal handleClick={handleNextRound} />
         </>
       )}
