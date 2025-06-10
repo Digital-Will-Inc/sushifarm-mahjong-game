@@ -153,8 +153,9 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   const [limit, setLimit] = useState(5);
   const [stackedScore, setStackedScore] = useState(0);
   const [cardSize, setCardSize] = useState(40);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [progressBorderSettings, setProgressBorderSettings] = useState<ProgressBorderSettings>(defaultProgressBorderSettings);
+  const [gameInitialized, setGameInitialized] = useState(false);
   const TotalCardsType = 22;
 
   const [currentUser, setCurrentUser] = useState<User | null>({
@@ -164,6 +165,80 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     score: 0,
     lastRound: false
   });
+
+  // Initialize game assets and Wortal SDK
+  useEffect(() =>
+  {
+    const initializeGame = async () =>
+    {
+      try
+      {
+        setLoading(true);
+
+        // Initialize audio assets first
+        const bg_audio = new Audio('/assets/audio/BG16.wav');
+        const winAudio = new Audio('/assets/audio/win.wav');
+        const dropAudio = new Audio('/assets/audio/drop.wav');
+        const loseAudio = new Audio('/assets/audio/lose.wav');
+        const jokerAudio = new Audio('/assets/audio/joker.mp3');
+
+        setBackgroundMusic(bg_audio);
+        setWinMusic(winAudio);
+        setDropMusic(dropAudio);
+        setLoseMusic(loseAudio);
+        setJokerMusic(jokerAudio);
+
+        // Update loading progress for assets
+        if (wortal.isWortalAvailable)
+        {
+          wortal.setLoadingProgress(30);
+        }
+
+        // Wait for Wortal to be initialized
+        if (wortal.isWortalAvailable && !wortal.isInitialized)
+        {
+          await wortal.initializeWortal();
+          wortal.setLoadingProgress(60);
+        }
+
+        // Initialize game data
+        await registerUser();
+        wortal.setLoadingProgress(80);
+
+        // Generate initial cards
+        generateCards(initialRound);
+        wortal.setLoadingProgress(90);
+
+        // Fetch leaderboard if available
+        if (wortal.isWortalAvailable)
+        {
+          await fetchLeaderboard();
+        }
+
+        // Complete loading
+        wortal.setLoadingProgress(100);
+        setLoading(false);
+        setGameInitialized(true);
+
+        // Start the game through Wortal
+        if (wortal.isWortalAvailable)
+        {
+          await wortal.startGame();
+
+          // Log game start
+          wortal.logLevelStart(`round_${initialRound.roundNumber}`);
+        }
+
+      } catch (error)
+      {
+        console.error('Failed to initialize game:', error);
+        setLoading(false);
+        setGameInitialized(true);
+      }
+    };
+
+    initializeGame();
+  }, []);
 
   useEffect(() =>
   {
@@ -195,20 +270,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     if (isHint) setLayerNumber(1);
     else setLayerNumber(0);
   }, [isHint])
-
-  useEffect(() =>
-  {
-    const bg_audio = new Audio('/assets/audio/BG16.wav');
-    const winAudio = new Audio('/assets/audio/win.wav');
-    const dropAudio = new Audio('/assets/audio/drop.wav');
-    const loseAudio = new Audio('/assets/audio/lose.wav');
-    const jokerAudio = new Audio('/assets/audio/joker.mp3');
-    setBackgroundMusic(bg_audio);
-    setWinMusic(winAudio);
-    setDropMusic(dropAudio);
-    setLoseMusic(loseAudio);
-    setJokerMusic(jokerAudio);
-  }, [])
 
   useEffect(() =>
   {
@@ -301,7 +362,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       setCurrentUser({
         id: wortal.player.id,
         email: email,
-        username: userName,
+        username: wortal.player.name || userName,
         score: 0,
         lastRound: false
       });
@@ -665,6 +726,17 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   // Start the next round
   const startNextRound = () =>
   {
+    // Log level completion before starting next round
+    if (wortal.isWortalAvailable)
+    {
+      wortal.logLevelEnd(
+        `round_${currentRound.roundNumber}`,
+        score.toString(),
+        true // Level was completed
+      );
+      wortal.logLevelUp(`round_${currentRound.roundNumber + 1}`);
+    }
+
     setBucket([]);
 
     //additional features
@@ -687,6 +759,12 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
     setCurrentRound(_round);
     generateCards(_round);
+
+    // Log new level start
+    if (wortal.isWortalAvailable)
+    {
+      wortal.logLevelStart(`round_${_round.roundNumber}`);
+    }
   };
 
   const startCurrentRound = () =>
@@ -777,7 +855,16 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     } else
     {
       setGameOver(true);
-      // restartGame();
+
+      // Log level failure
+      if (wortal.isWortalAvailable)
+      {
+        wortal.logLevelEnd(
+          `round_${currentRound.roundNumber}`,
+          score.toString(),
+          false // Level was not completed
+        );
+      }
     }
   };
 
@@ -875,6 +962,12 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     setCurrentRound(initialRound);
     generateCards(initialRound);
     registerUser(currentUser?.email!, currentUser?.username!);
+
+    // Log new game start
+    if (wortal.isWortalAvailable)
+    {
+      wortal.logLevelStart(`round_${initialRound.roundNumber}`);
+    }
   };
 
   // Handle card click
