@@ -6,12 +6,12 @@ export default function Document()
   return (
     <Html lang="en">
       <Head>
-        <title>Sushi Tower</title>
+        <title>Sushi Farm</title>
         <link
           href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
           rel="stylesheet"
         />
-        <link rel="icon" href="/assets/sushi/10.png" />
+        <link rel="icon" href="./assets/sushi/10.png" />
       </Head>
       <body className="antialiased">
         <Script

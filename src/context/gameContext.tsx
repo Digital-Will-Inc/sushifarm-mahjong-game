@@ -5,7 +5,8 @@ import React, {
   useMemo,
   useState,
   useEffect,
-  useRef
+  useRef,
+  useCallback
 } from "react";
 import { User, CardNode, Round, LeaderboardUser } from "src/types/type";
 import { useWortal } from "./wortalContext";
@@ -72,6 +73,14 @@ type GameContextType = {
   showGuide: boolean;
   layerNumber: number;
   loading: boolean;
+
+  // New Wortal-specific properties
+  gameplayActive: boolean;
+  adPlaying: boolean;
+  gameLoadingFinished: boolean;
+  sdkInitialized: boolean;
+  audioMutedForAd: boolean;
+
   setCardSize: (s: number) => void;
   setShowGuide: (f: boolean) => void;
   setStackedScore: (n: number) => void;
@@ -106,6 +115,14 @@ type GameContextType = {
   fetchLeaderboard: () => Promise<void>;
   handleSave: () => Promise<void>;
   handleLoad: () => Promise<void>;
+
+  // New Wortal-specific methods
+  fireGameplayStart: () => void;
+  fireGameplayStop: () => void;
+  pauseGame: () => void;
+  resumeGame: () => void;
+  muteAudioForAd: () => void;
+  unmuteAudioAfterAd: () => void;
 };
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -153,9 +170,27 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   const [limit, setLimit] = useState(5);
   const [stackedScore, setStackedScore] = useState(0);
   const [cardSize, setCardSize] = useState(40);
-  const [loading, setLoading] = useState(true); // Start with loading true
+  const [loading, setLoading] = useState(true);
   const [progressBorderSettings, setProgressBorderSettings] = useState<ProgressBorderSettings>(defaultProgressBorderSettings);
   const [gameInitialized, setGameInitialized] = useState(false);
+
+  // New Wortal-specific state
+  const [gameplayActive, setGameplayActive] = useState(false);
+  const [adPlaying, setAdPlaying] = useState(false);
+  const [gameLoadingFinished, setGameLoadingFinished] = useState(false);
+  const [sdkInitialized, setSdkInitialized] = useState(false);
+  const [audioMutedForAd, setAudioMutedForAd] = useState(false);
+  const [gameplayStartFired, setGameplayStartFired] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // Audio state backup for ad muting
+  const [audioStateBeforeAd, setAudioStateBeforeAd] = useState({
+    backgroundMusicVolume: 1,
+    backgroundMusicPlaying: false,
+    soundEnabled: true,
+    musicEnabled: true
+  });
+
   const TotalCardsType = 22;
 
   const [currentUser, setCurrentUser] = useState<User | null>({
@@ -166,6 +201,131 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     lastRound: false
   });
 
+  // Fire gameplay start event
+  const fireGameplayStart = useCallback(() =>
+  {
+    if (!gameplayStartFired && !adPlaying && gameLoadingFinished)
+    {
+      setGameplayActive(true);
+      setGameplayStartFired(true);
+
+      if (wortal.isWortalAvailable)
+      {
+        window.Wortal.session.gameplayStart()
+      }
+    }
+  }, [gameplayStartFired, adPlaying, gameLoadingFinished, currentRound.roundNumber, score, wortal.isWortalAvailable]);
+
+  // Fire gameplay stop event
+  const fireGameplayStop = useCallback(() =>
+  {
+    if (gameplayActive)
+    {
+      setGameplayActive(false);
+      setGameplayStartFired(false);
+
+      if (wortal.isWortalAvailable)
+      {
+        window.Wortal.session.gameplayStop()
+      }
+    }
+  }, [gameplayActive, currentRound.roundNumber, score, gameOver, isPaused, wortal.isWortalAvailable]);
+
+  // Pause game functionality
+  const pauseGame = useCallback(() =>
+  {
+    if (gameplayActive && !isPaused)
+    {
+      setIsPaused(true);
+      fireGameplayStop();
+
+      // Pause background music
+      if (backgroundMusic && !backgroundMusic.paused)
+      {
+        backgroundMusic.pause();
+      }
+
+      console.log('Game Paused');
+    }
+  }, [gameplayActive, isPaused, fireGameplayStop, backgroundMusic]);
+
+  // Resume game functionality
+  const resumeGame = useCallback(() =>
+  {
+    if (isPaused)
+    {
+      setIsPaused(false);
+      fireGameplayStart();
+
+      // Resume background music if it was playing and not muted
+      if (backgroundMusic && !musicOff && !audioMutedForAd)
+      {
+        backgroundMusic.play().catch(console.error);
+      }
+
+      console.log('Game Resumed');
+    }
+  }, [isPaused, fireGameplayStart, backgroundMusic, musicOff, audioMutedForAd]);
+
+  // Mute audio for ads
+  const muteAudioForAd = useCallback(() =>
+  {
+    if (!audioMutedForAd)
+    {
+      // Store current audio state
+      setAudioStateBeforeAd({
+        backgroundMusicVolume: backgroundMusic?.volume || 1,
+        backgroundMusicPlaying: backgroundMusic ? !backgroundMusic.paused : false,
+        soundEnabled: !soundOff,
+        musicEnabled: !musicOff
+      });
+
+      // Mute all audio elements
+      [backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic].forEach(audio =>
+      {
+        if (audio)
+        {
+          audio.volume = 0;
+          audio.pause();
+          // Ensure any queued audio playback is cancelled
+          audio.currentTime = 0;
+        }
+      });
+
+      // Set global mute flag
+      setAudioMutedForAd(true);
+      setSoundOff(true);
+      setMusicOff(true);
+      console.log('All audio muted for ad');
+    }
+  }, [audioMutedForAd, backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic, setSoundOff, setMusicOff]);
+
+  // Unmute audio after ads
+  const unmuteAudioAfterAd = useCallback(() =>
+  {
+    if (audioMutedForAd)
+    {
+      // Restore all audio elements
+      [backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic].forEach(audio =>
+      {
+        if (audio)
+        {
+          audio.volume = audioStateBeforeAd.backgroundMusicVolume;
+          if (audio === backgroundMusic && audioStateBeforeAd.backgroundMusicPlaying && !musicOff)
+          {
+            audio.play().catch(console.error);
+          }
+        }
+      });
+
+      // Restore global audio state
+      setAudioMutedForAd(false);
+      setSoundOff(!audioStateBeforeAd.soundEnabled);
+      setMusicOff(!audioStateBeforeAd.musicEnabled);
+      console.log('All audio restored after ad');
+    }
+  }, [audioMutedForAd, backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic, audioStateBeforeAd, musicOff, setSoundOff, setMusicOff]);
+
   // Initialize game assets and Wortal SDK
   useEffect(() =>
   {
@@ -174,13 +334,14 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       try
       {
         setLoading(true);
+        console.log('Starting game initialization...');
 
         // Initialize audio assets first
-        const bg_audio = new Audio('/assets/audio/BG16.wav');
-        const winAudio = new Audio('/assets/audio/win.wav');
-        const dropAudio = new Audio('/assets/audio/drop.wav');
-        const loseAudio = new Audio('/assets/audio/lose.wav');
-        const jokerAudio = new Audio('/assets/audio/joker.mp3');
+        const bg_audio = new Audio('./assets/audio/BG16.wav');
+        const winAudio = new Audio('./assets/audio/win.wav');
+        const dropAudio = new Audio('./assets/audio/drop.wav');
+        const loseAudio = new Audio('./assets/audio/lose.wav');
+        const jokerAudio = new Audio('./assets/audio/joker.mp3');
 
         setBackgroundMusic(bg_audio);
         setWinMusic(winAudio);
@@ -197,8 +358,15 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         // Wait for Wortal to be initialized
         if (wortal.isWortalAvailable && !wortal.isInitialized)
         {
+          console.log('Initializing Wortal SDK...');
           await wortal.initializeWortal();
           wortal.setLoadingProgress(60);
+          setSdkInitialized(true);
+          console.log('Wortal SDK initialized successfully');
+        } else if (!wortal.isWortalAvailable)
+        {
+          setSdkInitialized(false);
+          console.log('Wortal SDK not available - running in standalone mode');
         }
 
         // Initialize game data
@@ -219,14 +387,23 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         wortal.setLoadingProgress(100);
         setLoading(false);
         setGameInitialized(true);
+        setGameLoadingFinished(true);
+
+        // Fire gameLoadingFinished event
+        window.dispatchEvent(new CustomEvent('gameLoadingFinished', {
+          detail: {
+            timestamp: Date.now(),
+            sdkInitialized: wortal.isWortalAvailable && wortal.isInitialized
+          }
+        }));
+
+        console.log('Game loading finished event fired');
 
         // Start the game through Wortal
         if (wortal.isWortalAvailable)
         {
           await wortal.startGame();
-
-          // Log game start
-          wortal.logLevelStart(`round_${initialRound.roundNumber}`);
+          console.log('Wortal game started');
         }
 
       } catch (error)
@@ -234,12 +411,158 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         console.error('Failed to initialize game:', error);
         setLoading(false);
         setGameInitialized(true);
+        setGameLoadingFinished(true);
+        setSdkInitialized(false);
       }
     };
 
     initializeGame();
   }, []);
 
+  // Enhanced ad handling with proper audio management
+  const showInterstitialAdWithAudioHandling = useCallback((placement: string, description?: string) =>
+  {
+    if (!wortal.isWortalAvailable) return;
+
+    setAdPlaying(true);
+    fireGameplayStop(); // Stop gameplay before ad
+
+    window.Wortal.ads.showInterstitial(
+      placement,
+      description,
+      () =>
+      {
+        muteAudioForAd();
+        console.log('Interstitial ad starting');
+      },
+      () =>
+      {
+        unmuteAudioAfterAd();
+        setAdPlaying(false);
+        console.log('Interstitial ad finished');
+      },
+      () =>
+      {
+        setAdPlaying(false);
+        console.log('Interstitial ad not shown');
+      }
+    );
+  }, [wortal, fireGameplayStop, muteAudioForAd, unmuteAudioAfterAd]);
+
+  const showRewardedAdWithAudioHandling = useCallback((description: string, onReward: () => void) =>
+  {
+    if (!wortal.isWortalAvailable) return;
+
+    setAdPlaying(true);
+    fireGameplayStop(); // Stop gameplay before ad
+
+    window.Wortal.ads.showRewarded(description,
+      () =>
+      {
+        muteAudioForAd();
+        console.log('Rewarded ad starting');
+      },
+      () =>
+      {
+        unmuteAudioAfterAd();
+        setAdPlaying(false);
+        console.log('Rewarded ad finished');
+      },
+      () =>
+      {
+        unmuteAudioAfterAd();
+        setAdPlaying(false);
+        console.log('Rewarded ad dismissed');
+      },
+      () =>
+      {
+        onReward();
+        console.log('Rewarded ad viewed - reward granted');
+      },
+      () =>
+      {
+        setAdPlaying(false);
+        console.log('Rewarded ad not shown');
+      }
+    );
+  }, [wortal, fireGameplayStop, muteAudioForAd, unmuteAudioAfterAd]);
+
+  // Auto-fire gameplay start when game actually starts
+  useEffect(() =>
+  {
+    if (gameStarted && gameLoadingFinished && !gameOver && !isPaused && !adPlaying)
+    {
+      fireGameplayStart();
+    }
+  }, [gameStarted, gameLoadingFinished, gameOver, isPaused, adPlaying, fireGameplayStart]);
+
+  // Auto-fire gameplay stop when game ends or is paused
+  useEffect(() =>
+  {
+    if (gameOver || isPaused)
+    {
+      fireGameplayStop();
+    }
+  }, [gameOver, isPaused, fireGameplayStop]);
+
+  // Handle visibility change for pause/resume
+  useEffect(() =>
+  {
+    const handleVisibilityChange = () =>
+    {
+      if (document.hidden && gameplayActive && !adPlaying)
+      {
+        pauseGame();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [gameplayActive, adPlaying, pauseGame]);
+
+  // Prevent space bar and other controls during ads
+  useEffect(() =>
+  {
+    const handleKeyDown = (event: KeyboardEvent) =>
+    {
+      if (adPlaying)
+      {
+        // Prevent all keyboard interactions during ads
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+    };
+
+    const handleClick = (event: MouseEvent) =>
+    {
+      if (adPlaying)
+      {
+        // Prevent clicks during ads (except on ad content)
+        const target = event.target as HTMLElement;
+        if (!target.closest('[data-ad-content]'))
+        {
+          event.preventDefault();
+          event.stopPropagation();
+          return false;
+        }
+      }
+    };
+
+    if (adPlaying)
+    {
+      document.addEventListener('keydown', handleKeyDown, true);
+      document.addEventListener('click', handleClick, true);
+    }
+
+    return () =>
+    {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('click', handleClick, true);
+    };
+  }, [adPlaying]);
+
+  // Rest of your existing useEffect hooks remain the same...
   useEffect(() =>
   {
     if (isHint && layerNumber == 0) handleHintSelected();
@@ -286,7 +609,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
       backgroundMusic.addEventListener('timeupdate', handleLoop);
 
-      // Cleanup on unmount
       return () =>
       {
         backgroundMusic.removeEventListener('timeupdate', handleLoop);
@@ -297,15 +619,14 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   useEffect(() =>
   {
     if (backgroundMusic == null) return;
-    if (musicOff)
+    if (musicOff || audioMutedForAd)
     {
       backgroundMusic.pause();
-    }
-    else
+    } else if (!isPaused && !adPlaying)
     {
       backgroundMusic.play();
     }
-  }, [musicOff])
+  }, [musicOff, audioMutedForAd, isPaused, adPlaying, backgroundMusic])
 
   useEffect(() =>
   {
@@ -331,8 +652,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     try
     {
       const entries = await wortal.getLeaderboardEntries('global_leaderboard', 10, 0);
-      const formattedEntries = entries.map((entry) =>
-      ({
+      const formattedEntries = entries.map((entry) => ({
         id: entry.player.id,
         username: entry.player.name || 'Anonymous',
         score: entry.score,
@@ -366,11 +686,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         score: 0,
         lastRound: false
       });
-
-      if (wortal.player.isFirstPlay)
-      {
-        wortal.logTutorialStart('game_tutorial');
-      }
     } else
     {
       setCurrentUser({
@@ -395,6 +710,144 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     });
   };
 
+  // Enhanced restart game with proper event handling
+  const restartGame = () =>
+  {
+    if (gameStarted && wortal.isWortalAvailable)
+    {
+      fireGameplayStop(); // Fire stop before restart
+      wortal.logLevelEnd(
+        `round_${currentRound.roundNumber}`,
+        score.toString(),
+        false // Game was restarted, not completed
+      );
+    }
+
+    if (backgroundMusic && !isPlaying && !musicOff && !audioMutedForAd)
+    {
+      backgroundMusic
+        .play()
+        .then(() =>
+        {
+          setIsPlaying(true);
+        })
+        .catch((err) =>
+        {
+          console.error('Failed to play audio:', err);
+        });
+    }
+
+    setHighlighted(false);
+    setGameOver(false);
+    setGameStarted(true);
+    setGameRestarted(false);
+    setIsPaused(false);
+    setBucket([]);
+    setAdditionalSlots([]);
+    setRollbackAvailable(false);
+    setRollbackPressed(false);
+    setSlotAvailablity(true);
+    setLives(1);
+    setScore(0);
+    setMaxBucketCount(7);
+    setCurrentRound(initialRound);
+    generateCards(initialRound);
+    registerUser(currentUser?.email!, currentUser?.username!);
+
+    // Log new game start and fire gameplay start
+    if (wortal.isWortalAvailable)
+    {
+      wortal.logLevelStart(`round_${initialRound.roundNumber}`);
+    }
+  };
+
+  // Enhanced start next round with proper event handling
+  const startNextRound = () =>
+  {
+    if (wortal.isWortalAvailable)
+    {
+      fireGameplayStop(); // Stop current round
+      wortal.logLevelEnd(
+        `round_${currentRound.roundNumber}`,
+        score.toString(),
+        true // Level was completed
+      );
+      wortal.logLevelUp(`round_${currentRound.roundNumber + 1}`);
+    }
+
+    setBucket([]);
+    setAdditionalSlots([]);
+    setRollbackAvailable(false);
+    setRollbackPressed(false);
+    setSlotAvailablity(true);
+    const _cardTypeNumber = currentRound.difficulty === true ? currentRound.cardTypeNumber - 4 : Math.min(currentRound.cardTypeNumber + 2, TotalCardsType);
+    const _deepLayer = currentRound.difficulty === true ? Math.max(currentRound.deepLayer - 3, 3) : (currentRound.roundNumber + 1) % 4 === 0 ? currentRound.deepLayer + 3 : currentRound.deepLayer;
+    const _round: Round = {
+      roundNumber: currentRound.roundNumber + 1,
+      cardTypeNumber: _cardTypeNumber,
+      deepLayer: _deepLayer,
+      difficulty: currentRound.difficulty === true ? false : _cardTypeNumber * _deepLayer > 60 ? true : false,
+      typeOffest: Math.floor(Math.random() * (TotalCardsType - _cardTypeNumber)),
+      totalCards: _cardTypeNumber * _deepLayer
+    }
+    if (_round.roundNumber > 4) setMaxBucketCount(8);
+    else setMaxBucketCount(7);
+
+    setCurrentRound(_round);
+    generateCards(_round);
+
+    // Log new level start
+    if (wortal.isWortalAvailable)
+    {
+      wortal.logLevelStart(`round_${_round.roundNumber}`);
+    }
+
+    // Show interstitial ad between rounds (optional)
+    if (_round.roundNumber % 3 === 0)
+    {
+      showInterstitialAdWithAudioHandling('next', 'NextLevel');
+    }
+  };
+
+  // Enhanced lose life with proper event handling
+  const loseLife = () =>
+  {
+    fireGameplayStop(); // Stop gameplay when losing life
+
+    const audio = new Audio('./assets/audio/lose.wav');
+    !soundOff && !audioMutedForAd && audio.play();
+
+    if (lives > 1)
+    {
+      setLives((prev) => prev - 1);
+      startCurrentRound();
+      // Offer rewarded ad for extra life
+      if (wortal.isWortalAvailable)
+      {
+        showRewardedAdWithAudioHandling('Watch ad for extra life?', () =>
+        {
+          setLives((prev) => prev + 1);
+        });
+      }
+    } else
+    {
+      setGameOver(true);
+      if (wortal.isWortalAvailable)
+      {
+        wortal.logLevelEnd(
+          `round_${currentRound.roundNumber}`,
+          score.toString(),
+          false // Level was not completed
+        );
+        // Show interstitial ad on game over
+        showInterstitialAdWithAudioHandling('next', 'Game Over');
+      }
+    }
+  };
+
+  // All other existing methods remain the same...
+  // (gcd, lcd, checkVIPStatus, shuffleCards, etc.)
+
   const gcd = (x: number, y: number): number =>
   {
     while (y !== 0)
@@ -411,14 +864,11 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     return x * y / gcd(x, y);
   }
 
-  // Mock VIP status check
   const checkVIPStatus = async (wallet: string): Promise<boolean> =>
   {
-    // Simulate a smart contract call
     return new Promise((resolve) => setTimeout(() => resolve(Math.random() > 0.5), 1000));
   };
 
-  // Shuffle cards to randomize their position and parents
   const shuffleCards = (array: number[]) =>
   {
     for (let i = array.length - 1; i > 0; i--)
@@ -437,7 +887,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     }
   };
 
-  // Function to check if a card overlaps with another card
   const isOverlapping = (left1: number, left2: number, top1: number, top2: number,) =>
   {
     return Math.abs(left1 - left2) < cardSize && Math.abs(top1 - top2) < cardSize;
@@ -477,7 +926,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       {
         const randomIndex = Math.floor(Math.random() * _tempArray.length);
         const selectedPosition = _tempArray[randomIndex];
-        _tempArray.splice(randomIndex, 1); // Remove the selected position directly
+        _tempArray.splice(randomIndex, 1);
 
         const signArray: position[] = [
           { x: -2, y: -2 },
@@ -568,12 +1017,10 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     const allCards: number[] = [];
     const cardsPerLayer: number[] = [];
     let maxCardsLayer: number = 0;
-    // const totalCards: number = Math.floor(0.6 * cardTypeNumber) * lcd(cardMatchingCount, deepLayer);
 
     const addToGeneratedCards = (t: number, l: number, offset: number, layer: number, layer_array_size: number) =>
     {
       let parents = [];
-      // Check for overlap with other cards in the same layer and higher layers
       for (const card of generatedCards)
       {
         if (isOverlapping(card.left + card.offset, t + offset, card.top + card.offset, l + offset) && (card.zIndex > layer))
@@ -590,7 +1037,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         size: { width: cardSize, height: cardSize },
         zIndex: layer,
         parents,
-        state: layer === deepLayer || parents.length === 0 ? "available" : "unavailable", // Cards in the deepest layer or those with no parents are available
+        state: layer === deepLayer || parents.length === 0 ? "available" : "unavailable",
         array_size: layer_array_size,
         isInBucket: false,
         isInAdditionalSlot: false,
@@ -599,7 +1046,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       generatedCards.push(newCard);
     }
 
-    // Step 1: Create a pool of cards with shuffled types
     for (let i = 0; i < totalCards / cardMatchingCount; i++)
     {
       const type = i % cardTypeNumber + typeOffest;
@@ -608,9 +1054,8 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       allCards.push(type);
     }
 
-    //step 2: generate cards count per layer
     for (let i = 0; i < deepLayer - 1; i++) cardsPerLayer.push(totalCards / deepLayer);
-    difficulty ? cardsPerLayer.push(totalCards / deepLayer + 1) : cardsPerLayer.push(totalCards / deepLayer); // for Joker Card
+    difficulty ? cardsPerLayer.push(totalCards / deepLayer + 1) : cardsPerLayer.push(totalCards / deepLayer);
     for (let i = 0; i < Math.floor(deepLayer / 2); i++)
     {
       const _rand_amount = Math.min(Math.floor(Math.random() * Math.max(Math.min(totalCards / deepLayer, 10), 4)), 10);
@@ -621,14 +1066,11 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       if (maxCardsLayer < cardsPerLayer[deepLayer - i - 1]) maxCardsLayer = cardsPerLayer[i];
     }
 
-    // Step 3: Shuffle the cards to randomize their order
-
     shuffleCards(allCards);
     shuffleCards(allCards);
 
-    if (difficulty) allCards.splice(totalCards / 2, 0, -1);    //Joker Card
+    if (difficulty) allCards.splice(totalCards / 2, 0, -1);
 
-    // Step 4: Generate the cards layer by layer
     for (let layer = deepLayer - 1; layer >= 0; layer--)
     {
       const layerCards: layerCards = generateCardsByLayer(cardsPerLayer[layer], layer, 1);
@@ -665,7 +1107,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     });
   }
 
-  // Move first three cards to additional slots
   const moveToAdditionalSlots = () =>
   {
     setSlotAvailablity(false);
@@ -674,35 +1115,26 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     {
       if (bucket.length > 0)
       {
-        const firstThree = bucket.slice(0, Math.min(cardMatchingCount, bucket.length));  // Get first 3 items
-        const remainingBucket = bucket.slice(Math.min(cardMatchingCount, bucket.length));  // Get the remaining items after first 3
+        const firstThree = bucket.slice(0, Math.min(cardMatchingCount, bucket.length));
+        const remainingBucket = bucket.slice(Math.min(cardMatchingCount, bucket.length));
 
-        // Update bucket state with the remaining items
         setBucket(remainingBucket);
-
-        // Mark the moved cards as being in the additional slots
         firstThree.forEach(card => card.isInAdditionalSlot = true);
-
-        return [...prevSlots, ...firstThree];  // Add the first 3 cards to the additional slots
+        return [...prevSlots, ...firstThree];
       }
       return prevSlots;
     });
   };
 
-  // Rollback cards from additional slots to the bucket
   const rollbackFromAdditionalSlots = () =>
   {
     setRollbackPressed(true);
 
-    // Find the last `CardNode` item from the `bucket` array
     if (bucket.length > 0)
     {
       const lastCardNode = bucket[bucket.length - 1];
-
-      // Remove the last item from the `bucket` array
       bucket.pop();
 
-      // Add the last `CardNode` item to the `cards` array
       setCards((prevCards) =>
       {
         const updatedCards = [...prevCards, lastCardNode];
@@ -723,50 +1155,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     }
   };
 
-  // Start the next round
-  const startNextRound = () =>
-  {
-    // Log level completion before starting next round
-    if (wortal.isWortalAvailable)
-    {
-      wortal.logLevelEnd(
-        `round_${currentRound.roundNumber}`,
-        score.toString(),
-        true // Level was completed
-      );
-      wortal.logLevelUp(`round_${currentRound.roundNumber + 1}`);
-    }
-
-    setBucket([]);
-
-    //additional features
-    setAdditionalSlots([]);
-    setRollbackAvailable(false);
-    setRollbackPressed(false);
-    setSlotAvailablity(true);
-    const _cardTypeNumber = currentRound.difficulty === true ? currentRound.cardTypeNumber - 4 : Math.min(currentRound.cardTypeNumber + 2, TotalCardsType);
-    const _deepLayer = currentRound.difficulty === true ? Math.max(currentRound.deepLayer - 3, 3) : (currentRound.roundNumber + 1) % 4 === 0 ? currentRound.deepLayer + 3 : currentRound.deepLayer;
-    const _round: Round = {
-      roundNumber: currentRound.roundNumber + 1,
-      cardTypeNumber: _cardTypeNumber,
-      deepLayer: _deepLayer,
-      difficulty: currentRound.difficulty === true ? false : _cardTypeNumber * _deepLayer > 60 ? true : false,
-      typeOffest: Math.floor(Math.random() * (TotalCardsType - _cardTypeNumber)),
-      totalCards: _cardTypeNumber * _deepLayer
-    }
-    if (_round.roundNumber > 4) setMaxBucketCount(8);
-    else setMaxBucketCount(7);
-
-    setCurrentRound(_round);
-    generateCards(_round);
-
-    // Log new level start
-    if (wortal.isWortalAvailable)
-    {
-      wortal.logLevelStart(`round_${_round.roundNumber}`);
-    }
-  };
-
   const startCurrentRound = () =>
   {
     setBucket([]);
@@ -774,7 +1162,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     generateCards(currentRound);
   };
 
-  // Add card to the bucket
   const addToBucket = (card: CardNode) =>
   {
     setBucket((prevBucket) =>
@@ -783,7 +1170,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       let jokerCardthere = false;
       let _highlighted = false;
 
-      // Check for triplets in the bucket
       const typeCounts = updatedBucket.reduce((acc, curr) =>
       {
         acc[curr.type] = (acc[curr.type] || 0) + 1;
@@ -795,29 +1181,23 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         return acc;
       }, {} as Record<number, number>);
 
-      // If there is a triplet (three cards of the same type), remove them and add points
       for (const [typeId, count] of Object.entries(typeCounts))
       {
         if (count >= cardMatchingCount)
         {
-          // Update the score for triplets
           if (parseInt(typeId) === -1)
           {
             setScore((prevScore) => prevScore + 50);
             setStackedScore((prevScore) => prevScore + 50);
-          }
-          else
+          } else
           {
-            setScore((prevScore) => prevScore + 10); // Award points for triplets
+            setScore((prevScore) => prevScore + 10);
             setStackedScore((prevScore) => prevScore + 10);
           }
           setRollbackAvailable(false);
-
-          // Remove 3 matching cards from the bucket
           updatedBucket = updatedBucket.filter((card) => card.type !== parseInt(typeId));
         } else if (jokerCardthere && (count === cardMatchingCount - 1) && (parseInt(typeId) !== -1))
         {
-          // Highlight cards when jokerCardthere condition is met
           setHighlighted(true);
           _highlighted = true;
           updatedBucket = updatedBucket.map((card) =>
@@ -828,44 +1208,18 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         }
       }
 
-      // Check for bucket overflow (7 cards limit)
       if (updatedBucket.length === maxBucket && !loseLifeCalledRef.current && !_highlighted)
       {
-        loseLifeCalledRef.current = true; // Mark that loseLife is being called
+        loseLifeCalledRef.current = true;
         setTimeout(() =>
         {
           loseLife();
-          loseLifeCalledRef.current = false; // Reset after timeout
+          loseLifeCalledRef.current = false;
         }, 1);
       }
 
       return updatedBucket;
     });
-  };
-
-  const loseLife = () =>
-  {
-    const audio = new Audio('/assets/audio/lose.wav');
-    !soundOff && audio.play();
-
-    if (lives > 1)
-    {
-      setLives((prev) => prev - 1);
-      startCurrentRound();
-    } else
-    {
-      setGameOver(true);
-
-      // Log level failure
-      if (wortal.isWortalAvailable)
-      {
-        wortal.logLevelEnd(
-          `round_${currentRound.roundNumber}`,
-          score.toString(),
-          false // Level was not completed
-        );
-      }
-    }
   };
 
   const sendScore = async (newScore: number) =>
@@ -878,13 +1232,9 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
     try
     {
-      // Submit to Wortal leaderboard
       await wortal.setScore('global_leaderboard', newScore, `Round ${currentRound.roundNumber}`);
-
-      // Log the score
       wortal.logScore(newScore.toString());
 
-      // Save to Wortal player data
       const currentData = await wortal.getPlayerData(['highScore', 'currentRound']);
       if (newScore > (currentData.highScore || 0))
       {
@@ -910,78 +1260,31 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     {
       setScore((prevScore) =>
       {
-        const newScore = prevScore + 10; // Award points for triplets
+        const newScore = prevScore + 10;
         return newScore;
       });
       setStackedScore((prevScore) => prevScore + 10);
-
       setRollbackAvailable(false);
 
-      // Remove 3 matching cards from the bucket
       const removedCards = prevCards.filter((card) => card.type !== _type && card.type !== -1);
       return removedCards.map((card) => ({ ...card, highlight: false }));
     })
     setHighlighted(false);
   }
 
-  const restartGame = () =>
-  {
-    if (gameStarted && wortal.isWortalAvailable)
-    {
-      wortal.logLevelEnd(
-        `round_${currentRound.roundNumber}`,
-        score.toString(),
-        false // Game was restarted, not completed
-      );
-    }
-    if (backgroundMusic && !isPlaying && !musicOff)
-    {
-      backgroundMusic
-        .play()
-        .then(() =>
-        {
-          setIsPlaying(true);
-        })
-        .catch((err) =>
-        {
-          console.error('Failed to play audio:', err);
-        });
-    }
-    setHighlighted(false);
-    setGameOver(false);
-    setGameStarted(true);
-    setGameRestarted(false);
-    setBucket([]);
-    setAdditionalSlots([]);
-    setRollbackAvailable(false);
-    setRollbackPressed(false);
-    setSlotAvailablity(true);
-    setLives(1);
-    setScore(0);
-    setMaxBucketCount(7);
-    setCurrentRound(initialRound);
-    generateCards(initialRound);
-    registerUser(currentUser?.email!, currentUser?.username!);
-
-    // Log new game start
-    if (wortal.isWortalAvailable)
-    {
-      wortal.logLevelStart(`round_${initialRound.roundNumber}`);
-    }
-  };
-
-  // Handle card click
+  // Enhanced handle card click with audio management
   const handleCardClick = (card: CardNode) =>
   {
-    if (highlighted) return;
+    if (highlighted || adPlaying) return; // Don't allow clicks during ads
+
     if (card.type > -1)
     {
-      const audio = new Audio('/assets/audio/drop.wav'); // Path to your audio file
-      !soundOff && audio.play();
+      const audio = new Audio('./assets/audio/drop.wav');
+      !soundOff && !audioMutedForAd && audio.play();
     } else
     {
-      const audio = new Audio('/assets/audio/Joker.mp3'); // Path to your audio file
-      !soundOff && audio.play();
+      const audio = new Audio('./assets/audio/Joker.mp3');
+      !soundOff && !audioMutedForAd && audio.play();
     }
 
     if (card.state == "available") setRollbackAvailable(true && !rollbackPressed);
@@ -989,16 +1292,12 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     {
       setAdditionalSlots((prevSlots) =>
       {
-        // Remove the clicked card from the additional slots
         const newSlots = prevSlots.filter((slotCard) => slotCard.id !== card.id);
-
-        // Ensure the card is returned to the bucket
         setBucket((prevBucket) =>
         {
           const updatedBucket = [...prevBucket, { ...card, isInAdditionalSlot: false }];
           return updatedBucket;
         });
-
         return newSlots;
       });
       return;
@@ -1009,39 +1308,32 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       return;
     }
 
-    // Add to the bucket
     addToBucket(card);
 
-    // Remove the card from the board (cards state)
     setCards((prevCards) =>
     {
       const updatedCards = prevCards.filter((c) => c.id !== card.id);
 
-      // Update the parents of the remaining cards
       return updatedCards.map((c) =>
       {
         if (c.parents.some((parent) => parent.id === card.id))
         {
           const updatedParents = c.parents.filter((parent) => parent.id !== card.id);
 
-          // If the card has no parents left, set the state to "available"
           if (updatedParents.length === 0)
           {
             return { ...c, state: "available", parents: updatedParents };
           }
 
-          // If there are still parents left, check if all are "available" 
           const allParentsAvailable = updatedParents.every((parent) => parent.state === "available");
           if (allParentsAvailable)
           {
             return { ...c, state: "unavailable", parents: updatedParents };
           }
 
-          // If not all parents are available, leave the state unchanged but update parents
           return { ...c, parents: updatedParents };
         }
 
-        // If the card doesn't have `card` as a parent, return it unchanged
         return c;
       });
     });
@@ -1049,7 +1341,8 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
   const handleAdditionalCardClick = (card: CardNode) =>
   {
-    // Move the card back from the additional slots to the bucket
+    if (adPlaying) return; // Don't allow clicks during ads
+
     setAdditionalSlots((prevSlots) =>
     {
       const newSlots = prevSlots.filter((slotCard) => slotCard.id !== card.id);
@@ -1063,7 +1356,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   {
     if (!wortal.isWortalAvailable)
     {
-      // Fallback to localStorage
       const gameState = {
         currentRound,
         score,
@@ -1079,7 +1371,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         currentRound,
         score,
         lives,
-        bucket: bucket.map(card => ({ ...card, parents: [] })), // Simplify for storage
+        bucket: bucket.map(card => ({ ...card, parents: [] })),
         additionalSlots: additionalSlots.map(card => ({ ...card, parents: [] })),
         cards: cards.map(card => ({ ...card, parents: [] })),
         currentUser,
@@ -1102,7 +1394,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   {
     if (!wortal.isWortalAvailable)
     {
-      // Fallback to localStorage
       const savedState = localStorage.getItem('gameState');
       if (savedState)
       {
@@ -1138,7 +1429,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         setLives(gameState.lives);
         setStackedScore(0);
 
-        // Generate new cards instead of loading old positions
         generateCards(gameState.currentRound);
         setGameStarted(true);
 
@@ -1174,7 +1464,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       cards,
       cardSize,
       leaderBoard,
-      isConnected: true,
       score,
       slotAvailablity,
       cardBoardWidth,
@@ -1197,6 +1486,14 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       showGuide,
       layerNumber,
       loading,
+
+      // New Wortal-specific values
+      gameplayActive,
+      adPlaying,
+      gameLoadingFinished,
+      sdkInitialized,
+      audioMutedForAd,
+
       progressBorderSettings: progressBorderSettings,
       setProgressBorderSettings,
       setCardSize,
@@ -1231,6 +1528,14 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       removeJokerPair,
       handleSave,
       handleLoad,
+
+      // New Wortal-specific methods
+      fireGameplayStart,
+      fireGameplayStop,
+      pauseGame,
+      resumeGame,
+      muteAudioForAd,
+      unmuteAudioAfterAd,
     }),
     [
       loading,
@@ -1264,7 +1569,18 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       slotAvailablity,
       cardBoardWidth,
       rollbackAvailable,
-      rollbackPressed
+      rollbackPressed,
+      gameplayActive,
+      adPlaying,
+      gameLoadingFinished,
+      sdkInitialized,
+      audioMutedForAd,
+      fireGameplayStart,
+      fireGameplayStop,
+      pauseGame,
+      resumeGame,
+      muteAudioForAd,
+      unmuteAudioAfterAd,
     ]
   );
 

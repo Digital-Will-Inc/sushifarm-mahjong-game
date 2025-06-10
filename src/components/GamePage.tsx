@@ -227,7 +227,7 @@ const GameBoard = () =>
   {
     if (cards.length === 0 && gameStarted && bucket.length === 0 && additionalSlots.length === 0)
     {
-      const audio = new Audio('/assets/audio/win.wav');
+      const audio = new Audio('./assets/audio/win.wav');
       !soundOff && audio.play();
       setShowCongrats(true);
     }

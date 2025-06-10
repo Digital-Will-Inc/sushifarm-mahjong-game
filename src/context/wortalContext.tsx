@@ -101,6 +101,8 @@ declare global
                 setSessionData(data: any): void;
                 getSessionData(): any;
                 switchGameAsync(gameID: string, data?: any): Promise<void>;
+                gameplayStart(): void;
+                gameplayStop(): void;
             };
         };
     }

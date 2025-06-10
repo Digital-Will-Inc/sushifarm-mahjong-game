@@ -236,7 +236,7 @@ const CardBoard = () =>
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-yellow-400/10 via-orange-400/5 to-yellow-400/10 animate-pulse"></div>
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 z-10"></div>
 
-        <div
+        {/* <div
           className="absolute left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full text-white font-medium shadow-lg z-10 whitespace-nowrap"
           style={{
             top: `${titleTopOffset}px`,
@@ -245,8 +245,8 @@ const CardBoard = () =>
             lineHeight: '1',
           }}
         >
-          Sushi Tower
-        </div>
+          Sushi Farm
+        </div> */}
 
         <div
           className="relative bg-gradient-to-br from-amber-100/20 via-orange-100/10 to-amber-100/20 backdrop-blur-sm rounded-3xl overflow-hidden mx-auto mt-3 border border-white/10"
