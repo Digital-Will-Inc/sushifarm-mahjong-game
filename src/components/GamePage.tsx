@@ -18,17 +18,16 @@ import
 } from './index'
 
 type LayoutConfig = {
-  maxContainerWidth: number;
   containerPadding: number;
   headerHeight: number;
   bucketHeight: number;
   gameInfoHeight: number;
   hudGap: number;
   cardBoardGap: number;
-  cardBoardMinSize: number;
-  cardBoardMaxSize: number;
   mobileBreakpoint: number;
   tabletBreakpoint: number;
+  gridCols: number;
+  gridRows: number;
 };
 
 const GameBoard = () =>
@@ -62,75 +61,91 @@ const GameBoard = () =>
   const [showCongrats, setShowCongrats] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
 
-  // Optimized layout configuration
+  // Simplified layout configuration
   const [layoutConfig, setLayoutConfig] = useState<LayoutConfig>({
-    maxContainerWidth: 500,
     containerPadding: 8,
     headerHeight: 70,
     bucketHeight: 100,
     gameInfoHeight: 80,
-    hudGap: 36,
-    cardBoardGap: 10,
-    cardBoardMinSize: 480,
-    cardBoardMaxSize: 1200,
+    hudGap: 12,
+    cardBoardGap: 8,
     mobileBreakpoint: 768,
     tabletBreakpoint: 1024,
+    gridCols: 10, // Adjust based on your actual game grid
+    gridRows: 10, // Adjust based on your actual game grid
   });
 
   const [layout, setLayout] = useState({
     screenWidth: typeof window !== 'undefined' ? window.innerWidth : 500,
     screenHeight: typeof window !== 'undefined' ? window.innerHeight : 800,
     containerWidth: 400,
-    cardBoardSize: 750,
-    cardSize: 150,
+    cardBoardWidth: 400,
+    cardBoardHeight: 400,
+    cardSize: 40,
     isMobile: true,
-    availableHeight: 600,
+    isLandscape: false,
   });
 
-  const calculateUnifiedLayout = () =>
+  const calculateOptimalLayout = () =>
   {
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
     const isMobile = screenWidth < layoutConfig.mobileBreakpoint;
+    const isLandscape = screenWidth > screenHeight;
 
-    // Container width - centered with max width
-    const containerWidth = Math.min(
-      screenWidth - (layoutConfig.containerPadding * 2),
-      layoutConfig.maxContainerWidth
-    );
+    // Container dimensions
+    const containerWidth = screenWidth - (layoutConfig.containerPadding * 2);
+    const containerHeight = screenHeight - (layoutConfig.containerPadding * 2);
 
-    // Calculate used height for HUD components
-    const usedHeight =
+    // Calculate total HUD space requirements
+    const totalHudHeight =
       layoutConfig.headerHeight +
       layoutConfig.bucketHeight +
       layoutConfig.gameInfoHeight +
-      layoutConfig.hudGap + // Zero gap between header-bucket
-      (layoutConfig.cardBoardGap * 2) + // Gaps around cardboard
-      (layoutConfig.containerPadding * 2);
+      (layoutConfig.hudGap * 3); // Gaps between elements
 
-    const availableHeight = screenHeight - usedHeight;
+    // Available space for cardboard (with safety margins)
+    const availableWidth = containerWidth - (layoutConfig.cardBoardGap * 2);
+    const availableHeight = containerHeight - totalHudHeight - (layoutConfig.cardBoardGap * 2);
 
-    // CardBoard size - maximize available space while keeping it square
-    const maxCardBoardSize = Math.min(
-      containerWidth - (layoutConfig.cardBoardGap * 2),
-      availableHeight,
-      layoutConfig.cardBoardMaxSize
-    );
+    // Ensure we have positive dimensions
+    const safeAvailableWidth = Math.max(200, availableWidth);
+    const safeAvailableHeight = Math.max(200, availableHeight);
 
-    const cardBoardSize = Math.max(maxCardBoardSize, layoutConfig.cardBoardMinSize);
+    // Calculate cardboard dimensions to fill available space
+    let cardBoardWidth = safeAvailableWidth;
+    let cardBoardHeight = safeAvailableHeight;
 
-    // Optimize card size for better board utilization
-    const effectiveBoardSize = cardBoardSize * 0.85;
-    const cardSize = Math.max(Math.floor(effectiveBoardSize / 10), isMobile ? 24 : 28);
+    // Calculate card size based on available cardboard space and grid
+    const cardSizeByWidth = (cardBoardWidth * 0.95) / layoutConfig.gridCols; // 95% to account for internal gaps
+    const cardSizeByHeight = (cardBoardHeight * 0.95) / layoutConfig.gridRows;
+
+    // Use the smaller dimension to ensure cards fit properly
+    const cardSize = Math.min(cardSizeByWidth, cardSizeByHeight);
+
+    // Recalculate cardboard dimensions based on optimal card size
+    // This ensures the cardboard uses space efficiently while maintaining proportions
+    const optimalCardBoardWidth = cardSize * layoutConfig.gridCols * 1.05; // Add 5% for gaps
+    const optimalCardBoardHeight = cardSize * layoutConfig.gridRows * 1.05;
+
+    // Use the optimal dimensions if they fit, otherwise use available space
+    const finalCardBoardWidth = Math.min(optimalCardBoardWidth, safeAvailableWidth);
+    const finalCardBoardHeight = Math.min(optimalCardBoardHeight, safeAvailableHeight);
+
+    // Final card size adjustment based on actual cardboard dimensions
+    const finalCardSizeByWidth = (finalCardBoardWidth * 0.95) / layoutConfig.gridCols;
+    const finalCardSizeByHeight = (finalCardBoardHeight * 0.95) / layoutConfig.gridRows;
+    const finalCardSize = Math.min(finalCardSizeByWidth, finalCardSizeByHeight);
 
     return {
       screenWidth,
       screenHeight,
       containerWidth,
-      cardBoardSize,
-      cardSize,
+      cardBoardWidth: Math.floor(finalCardBoardWidth),
+      cardBoardHeight: Math.floor(finalCardBoardHeight),
+      cardSize: Math.floor(Math.max(15, finalCardSize)), // Minimum 15px for visibility
       isMobile,
-      availableHeight,
+      isLandscape,
     };
   };
 
@@ -138,15 +153,19 @@ const GameBoard = () =>
   {
     const handleResize = () =>
     {
-      const newLayout = calculateUnifiedLayout();
+      const newLayout = calculateOptimalLayout();
       setLayout(newLayout);
-      setCardBoardWidth(newLayout.cardBoardSize);
+      setCardBoardWidth(newLayout.cardBoardWidth);
       setCardSize(newLayout.cardSize);
     };
 
+    // Initial calculation
     handleResize();
+
+    // Add resize listener
     window.addEventListener("resize", handleResize);
 
+    // Prevent context menu
     document.addEventListener('contextmenu', function (e)
     {
       e.preventDefault();
@@ -181,76 +200,108 @@ const GameBoard = () =>
 
   return (
     <div
-      className="min-h-screen bg-cover text-white overflow-hidden flex items-center justify-center"
+      className="min-h-screen bg-cover text-white overflow-hidden"
       style={{
         backgroundImage: `url(assets/sushi/background.jpg)`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        padding: `${layoutConfig.containerPadding * 0.5}px ${layoutConfig.containerPadding}px`,
+        width: '100vw',
+        height: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0,
       }}
     >
       <div className="absolute inset-0 bg-yellow-200/20"></div>
 
-      {/* Unified Vertical Layout Container */}
+      {/* Responsive Layout Container */}
       <div
-        className="relative z-10 flex flex-col h-screen w-full max-w-none justify-between"
+        className="relative z-10 flex flex-col h-full w-full items-center"
         style={{
-          width: '100%', // Full width
-          maxWidth: `${layout.containerWidth}px`, // Centered with max width
-          margin: '0 auto', // Center horizontally
-          padding: '0', // No padding
+          padding: `${layoutConfig.containerPadding}px`,
         }}
       >
 
-        {/* Unified HUD Section - Header + Bucket (Zero Gap) */}
-        <div className="flex-shrink-0 w-full">
-          {/* Header */}
-          <div style={{
+        {/* Header Section - Fixed Height, Same Width as CardBoard */}
+        <div
+          className="flex-shrink-0 flex justify-center"
+          style={{
             height: `${layoutConfig.headerHeight}px`,
-            position: 'sticky',
-            top: '0',
-            zIndex: 30,
-          }}>
-            <Header />
-          </div>
-
-          {/* Bucket - Seamlessly connected to Header */}
+            marginBottom: `${layoutConfig.hudGap}px`,
+            width: '100%',
+          }}
+        >
           <div
             style={{
-              height: `${layoutConfig.bucketHeight}px`,
-              marginTop: `${layoutConfig.hudGap}px` // Zero gap
+              width: `${layout.cardBoardWidth}px`,
+              height: '100%',
+            }}
+          >
+            <Header />
+          </div>
+        </div>
+
+        {/* Bucket Section - Fixed Height, Same Width as CardBoard */}
+        <div
+          className="flex-shrink-0 flex justify-center"
+          style={{
+            height: `${layoutConfig.bucketHeight}px`,
+            marginBottom: `${layoutConfig.hudGap}px`,
+            width: '100%',
+          }}
+        >
+          <div
+            style={{
+              width: `${layout.cardBoardWidth}px`,
+              height: '100%',
             }}
           >
             <Bucket />
           </div>
         </div>
 
-        {/* CardBoard - Maximized Square in Center */}
-        <div className="flex-1 flex items-center justify-center min-h-0">
+        {/* CardBoard Section - Flexible, Centered */}
+        <div
+          className="flex-1 flex items-center justify-center"
+          style={{
+            minHeight: 0, // Important for flex child
+            padding: `${layoutConfig.cardBoardGap}px`,
+            width: '100%',
+          }}
+        >
           <div
             style={{
-              width: `${layout.cardBoardSize}px`,
-              height: `${layout.cardBoardSize}px`,
+              width: `${layout.cardBoardWidth}px`,
+              height: `${layout.cardBoardHeight}px`,
               maxWidth: '100%',
               maxHeight: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <CardBoard />
           </div>
         </div>
 
-        {/* GameInfo - Compact Bottom HUD */}
+        {/* GameInfo Section - Fixed Height, Same Width as CardBoard */}
         <div
-          className="flex-shrink-0 w-full"
+          className="flex-shrink-0 flex justify-center"
           style={{
             height: `${layoutConfig.gameInfoHeight}px`,
-            position: 'sticky',
-            bottom: '0',
-            zIndex: 30,
+            marginTop: `${layoutConfig.hudGap}px`,
+            width: '100%',
           }}
         >
-          <GameInfo />
+          <div
+            style={{
+              width: `${layout.cardBoardWidth}px`,
+              height: '100%',
+            }}
+          >
+            <GameInfo />
+          </div>
         </div>
 
       </div>
@@ -262,7 +313,6 @@ const GameBoard = () =>
           <CongratesModal handleClick={handleNextRound} />
         </>
       )}
-
       {gameOver && <FailedModal handleClick={restartGame} />}
       {showConfirmModal && gameStarted && <ConfirmModal />}
       {showGuideModal && <GuideModal />}
