@@ -113,20 +113,23 @@ const Bucket = () =>
           </div>
         </div>
 
-        {/* Cards container - flexible height */}
+        {/* Cards container - flexible height with centered grid */}
         <div
-          className="flex-1 relative min-h-0"
+          className="flex-1 relative min-h-0 flex items-center justify-center"
           style={{
             padding: `${responsiveSizes.padding * 0.75}px ${responsiveSizes.padding}px`
           }}
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_white/5_1px,_transparent_1px)] bg-[length:20px_20px] opacity-30"></div>
 
+          {/* Centered grid container */}
           <div
-            className="grid justify-center h-full content-center relative z-10"
+            className="grid relative z-10"
             style={{
               gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
-              gap: `${responsiveSizes.gap}px`
+              gap: `${responsiveSizes.gap}px`,
+              justifyItems: 'center',
+              alignItems: 'center'
             }}
           >
             {/* Filled slots */}

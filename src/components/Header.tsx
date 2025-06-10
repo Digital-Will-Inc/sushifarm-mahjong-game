@@ -59,22 +59,37 @@ const Header = () =>
 
   // Calculate responsive sizes based on container dimensions
   const responsiveSizes = {
-    // Logo size: 12-15% of container height, min 24px, max 48px
-    logoSize: Math.max(24, Math.min(48, containerDimensions.height * 0.14)),
-    // Button size: 10-12% of container height, min 20px, max 40px  
-    buttonSize: Math.max(20, Math.min(40, containerDimensions.height * 0.12)),
-    // Avatar size: 8-10% of container height, min 20px, max 36px
-    avatarSize: Math.max(20, Math.min(36, containerDimensions.height * 0.09)),
+    // Logo size: 40% of container height, min 24px, max 48px
+    logoSize: Math.max(24, Math.min(48, containerDimensions.height * 0.4)),
+    // Button size: 55% of container height as requested, min 28px, max 56px
+    buttonSize: Math.max(28, Math.min(56, containerDimensions.height * 0.55)),
+    // Avatar size: 40% of container height, min 20px, max 36px
+    avatarSize: Math.max(20, Math.min(36, containerDimensions.height * 0.4)),
     // Font sizes based on container height
     titleFontSize: Math.max(12, Math.min(18, containerDimensions.height * 0.22)),
     subtitleFontSize: Math.max(8, Math.min(12, containerDimensions.height * 0.15)),
     usernameFontSize: Math.max(10, Math.min(16, containerDimensions.height * 0.18)),
     // Padding and gaps
     padding: Math.max(8, Math.min(24, containerDimensions.width * 0.02)),
-    gap: Math.max(6, Math.min(16, containerDimensions.width * 0.015)),
+    logoGap: Math.max(6, Math.min(16, containerDimensions.width * 0.015)),
     // Accent bar height
     accentHeight: Math.max(2, Math.min(4, containerDimensions.height * 0.06))
   };
+
+  // Calculate dynamic gap between buttons based on available space
+  const calculateButtonGap = () =>
+  {
+    const logoSection = responsiveSizes.logoSize + (containerDimensions.width > 300 ? 120 : 0); // Logo + title width estimate
+    const userSection = responsiveSizes.avatarSize + (containerDimensions.width > 250 ? 100 : 0); // Avatar + username width estimate
+    const totalButtonWidth = responsiveSizes.buttonSize * 4; // Assuming max 4 buttons
+    const usedSpace = logoSection + userSection + totalButtonWidth + (responsiveSizes.padding * 4);
+    const availableSpace = containerDimensions.width - usedSpace;
+
+    // Distribute available space between buttons, min 8px, max 24px
+    return Math.max(8, Math.min(24, availableSpace / 3));
+  };
+
+  const buttonGap = calculateButtonGap();
 
   const toggleDropdown = () =>
   {
@@ -123,7 +138,7 @@ const Header = () =>
         {/* Left side - Enhanced Logo */}
         <div
           className="flex items-center relative z-10"
-          style={{ gap: `${responsiveSizes.gap}px` }}
+          style={{ gap: `${responsiveSizes.logoGap}px` }}
         >
           <div className="relative group">
             <div
@@ -164,10 +179,14 @@ const Header = () =>
           )}
         </div>
 
-        {/* Center - Enhanced Game Controls */}
+        {/* Center - Enhanced Game Controls with Dynamic Gap */}
         <div
-          className="flex items-center relative z-10"
-          style={{ gap: `${responsiveSizes.gap * 0.7}px` }}
+          className="flex items-center justify-center relative z-10 flex-1"
+          style={{
+            gap: `${buttonGap}px`,
+            marginLeft: `${responsiveSizes.padding}px`,
+            marginRight: `${responsiveSizes.padding}px`
+          }}
         >
           {gameStarted && (
             <button
@@ -236,7 +255,7 @@ const Header = () =>
             onClick={toggleDropdown}
             className="group flex items-center bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-lg"
             style={{
-              gap: `${responsiveSizes.gap * 0.7}px`,
+              gap: `${responsiveSizes.logoGap * 0.7}px`,
               padding: `${responsiveSizes.padding * 0.3}px ${responsiveSizes.padding * 0.6}px`
             }}
           >
@@ -271,13 +290,13 @@ const Header = () =>
                   <p className="text-sm font-medium text-gray-800 truncate">{currentUser?.username || "Player"}</p>
                   <p className="text-xs text-gray-600">Sushi Master</p>
                 </div>
-                <button
+                {/* <button
                   onClick={handleEdit}
                   className="w-full px-4 py-3 text-left text-gray-700 hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-all duration-200 flex items-center gap-3 text-sm"
                 >
                   <FaEdit className="text-orange-400" />
                   Change Name
-                </button>
+                </button> */}
                 <button
                   onClick={handleSettings}
                   className="w-full px-4 py-3 text-left text-gray-700 hover:bg-gradient-to-r hover:from-orange-50 hover:to-pink-50 transition-all duration-200 flex items-center gap-3 text-sm"
