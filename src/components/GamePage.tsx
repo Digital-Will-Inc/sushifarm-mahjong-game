@@ -17,6 +17,20 @@ import
   HowToPlay
 } from './index'
 
+type LayoutConfig = {
+  maxContainerWidth: number;
+  containerPadding: number;
+  headerHeight: number;
+  bucketHeight: number;
+  gameInfoHeight: number;
+  hudGap: number;
+  cardBoardGap: number;
+  cardBoardMinSize: number;
+  cardBoardMaxSize: number;
+  mobileBreakpoint: number;
+  tabletBreakpoint: number;
+};
+
 const GameBoard = () =>
 {
   const {
@@ -47,57 +61,76 @@ const GameBoard = () =>
 
   const [showCongrats, setShowCongrats] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
-  const [dimensions, setDimensions] = useState({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
-    height: typeof window !== 'undefined' ? window.innerHeight : 800,
-    isMobile: false,
-    isTablet: false,
-    isDesktop: false
+
+  // Optimized layout configuration
+  const [layoutConfig, setLayoutConfig] = useState<LayoutConfig>({
+    maxContainerWidth: 500,
+    containerPadding: 8,
+    headerHeight: 70,
+    bucketHeight: 100,
+    gameInfoHeight: 80,
+    hudGap: 36,
+    cardBoardGap: 10,
+    cardBoardMinSize: 480,
+    cardBoardMaxSize: 1200,
+    mobileBreakpoint: 768,
+    tabletBreakpoint: 1024,
   });
 
-  // Responsive breakpoints
-  const getDeviceType = (width: number, height: number) =>
+  const [layout, setLayout] = useState({
+    screenWidth: typeof window !== 'undefined' ? window.innerWidth : 500,
+    screenHeight: typeof window !== 'undefined' ? window.innerHeight : 800,
+    containerWidth: 400,
+    cardBoardSize: 750,
+    cardSize: 150,
+    isMobile: true,
+    availableHeight: 600,
+  });
+
+  const calculateUnifiedLayout = () =>
   {
-    const isMobile = width < 768;
-    const isTablet = width >= 768 && width < 1024;
-    const isDesktop = width >= 1024;
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const isMobile = screenWidth < layoutConfig.mobileBreakpoint;
 
-    return { isMobile, isTablet, isDesktop };
-  };
+    // Container width - centered with max width
+    const containerWidth = Math.min(
+      screenWidth - (layoutConfig.containerPadding * 2),
+      layoutConfig.maxContainerWidth
+    );
 
-  // Calculate responsive dimensions
-  const calculateDimensions = () =>
-  {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const deviceType = getDeviceType(width, height);
+    // Calculate used height for HUD components
+    const usedHeight =
+      layoutConfig.headerHeight +
+      layoutConfig.bucketHeight +
+      layoutConfig.gameInfoHeight +
+      layoutConfig.hudGap + // Zero gap between header-bucket
+      (layoutConfig.cardBoardGap * 2) + // Gaps around cardboard
+      (layoutConfig.containerPadding * 2);
 
-    let cardBoardSize;
-    let cardSize;
+    const availableHeight = screenHeight - usedHeight;
 
-    if (deviceType.isMobile)
-    {
-      // Mobile: Use most of the screen width with padding
-      cardBoardSize = Math.min(width - 32, height * 0.6);
-      cardSize = Math.max(Math.floor(cardBoardSize / 12), 35);
-    } else if (deviceType.isTablet)
-    {
-      // Tablet: Balanced approach
-      cardBoardSize = Math.min(width * 0.7, height * 0.7, 600);
-      cardSize = Math.max(Math.floor(cardBoardSize / 10), 45);
-    } else
-    {
-      // Desktop: Fixed size with good proportions
-      cardBoardSize = Math.min(width * 0.45, height * 0.8, 700);
-      cardSize = Math.max(Math.floor(cardBoardSize / 9), 50);
-    }
+    // CardBoard size - maximize available space while keeping it square
+    const maxCardBoardSize = Math.min(
+      containerWidth - (layoutConfig.cardBoardGap * 2),
+      availableHeight,
+      layoutConfig.cardBoardMaxSize
+    );
+
+    const cardBoardSize = Math.max(maxCardBoardSize, layoutConfig.cardBoardMinSize);
+
+    // Optimize card size for better board utilization
+    const effectiveBoardSize = cardBoardSize * 0.85;
+    const cardSize = Math.max(Math.floor(effectiveBoardSize / 10), isMobile ? 24 : 28);
 
     return {
-      width,
-      height,
+      screenWidth,
+      screenHeight,
+      containerWidth,
       cardBoardSize,
       cardSize,
-      ...deviceType
+      isMobile,
+      availableHeight,
     };
   };
 
@@ -105,19 +138,15 @@ const GameBoard = () =>
   {
     const handleResize = () =>
     {
-      const newDimensions = calculateDimensions();
-      setDimensions(newDimensions);
-      setCardBoardWidth(newDimensions.cardBoardSize);
-      setCardSize(newDimensions.cardSize);
+      const newLayout = calculateUnifiedLayout();
+      setLayout(newLayout);
+      setCardBoardWidth(newLayout.cardBoardSize);
+      setCardSize(newLayout.cardSize);
     };
 
-    // Initial setup
     handleResize();
-
-    // Add resize listener
     window.addEventListener("resize", handleResize);
 
-    // Prevent context menu
     document.addEventListener('contextmenu', function (e)
     {
       e.preventDefault();
@@ -127,7 +156,7 @@ const GameBoard = () =>
     {
       window.removeEventListener("resize", handleResize);
     };
-  }, [setCardBoardWidth, setCardSize]);
+  }, [layoutConfig, setCardBoardWidth, setCardSize]);
 
   useEffect(() =>
   {
@@ -141,7 +170,6 @@ const GameBoard = () =>
 
   useEffect(() =>
   {
-    // Initialize the game with a default user
     registerUser('local@player.com', 'Player');
   }, [registerUser]);
 
@@ -151,84 +179,80 @@ const GameBoard = () =>
     startNextRound();
   };
 
-  // Responsive layout classes
-  const getLayoutClasses = () =>
-  {
-    if (dimensions.isMobile)
-    {
-      return {
-        container: "flex flex-col gap-3 p-4 min-h-screen",
-        gameArea: "flex flex-col gap-4 items-center justify-center flex-1",
-        sidePanel: "w-full"
-      };
-    } else if (dimensions.isTablet)
-    {
-      return {
-        container: "flex flex-col gap-4 p-6 min-h-screen",
-        gameArea: "flex flex-col gap-6 items-center justify-center flex-1",
-        sidePanel: "w-full max-w-md mx-auto"
-      };
-    } else
-    {
-      return {
-        container: "flex flex-row gap-6 p-8 min-h-screen justify-center items-center",
-        gameArea: "flex flex-col gap-4 items-center",
-        sidePanel: "flex flex-col gap-4 min-w-[320px] max-w-[400px]"
-      };
-    }
-  };
-
-  const layoutClasses = getLayoutClasses();
-
   return (
     <div
-      className="min-h-screen bg-cover text-white"
+      className="min-h-screen bg-cover text-white overflow-hidden flex items-center justify-center"
       style={{
         backgroundImage: `url(assets/sushi/background.jpg)`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+        backgroundRepeat: 'no-repeat',
+        padding: `${layoutConfig.containerPadding * 0.5}px ${layoutConfig.containerPadding}px`,
       }}
     >
-      {/* Background overlay */}
       <div className="absolute inset-0 bg-yellow-200/20"></div>
 
-      {/* Main game container */}
-      <div className={`relative z-10 ${layoutClasses.container}`}>
-        {/* Mobile/Tablet Layout */}
-        {(dimensions.isMobile || dimensions.isTablet) && (
-          <div className={layoutClasses.gameArea}>
+      {/* Unified Vertical Layout Container */}
+      <div
+        className="relative z-10 flex flex-col h-screen w-full max-w-none justify-between"
+        style={{
+          width: '100%', // Full width
+          maxWidth: `${layout.containerWidth}px`, // Centered with max width
+          margin: '0 auto', // Center horizontally
+          padding: '0', // No padding
+        }}
+      >
+
+        {/* Unified HUD Section - Header + Bucket (Zero Gap) */}
+        <div className="flex-shrink-0 w-full">
+          {/* Header */}
+          <div style={{
+            height: `${layoutConfig.headerHeight}px`,
+            position: 'sticky',
+            top: '0',
+            zIndex: 30,
+          }}>
             <Header />
-            <div className="relative">
-              <CardBoard />
-            </div>
-            <div className={layoutClasses.sidePanel}>
-              <GameInfo />
-              <Bucket />
-            </div>
           </div>
-        )}
 
-        {/* Desktop Layout */}
-        {dimensions.isDesktop && (
-          <>
-            {/* Left Section: Game Board */}
-            <div className={layoutClasses.gameArea}>
-              <div className="relative">
-                <CardBoard />
-              </div>
-            </div>
+          {/* Bucket - Seamlessly connected to Header */}
+          <div
+            style={{
+              height: `${layoutConfig.bucketHeight}px`,
+              marginTop: `${layoutConfig.hudGap}px` // Zero gap
+            }}
+          >
+            <Bucket />
+          </div>
+        </div>
 
-            {/* Right Section: Game Info and Controls */}
-            <div className={layoutClasses.sidePanel}>
-              <Header />
-              <GameInfo />
-              <Bucket />
-              <div className="flex-1 flex flex-col justify-end">
-              </div>
-            </div>
-          </>
-        )}
+        {/* CardBoard - Maximized Square in Center */}
+        <div className="flex-1 flex items-center justify-center min-h-0">
+          <div
+            style={{
+              width: `${layout.cardBoardSize}px`,
+              height: `${layout.cardBoardSize}px`,
+              maxWidth: '100%',
+              maxHeight: '100%',
+            }}
+          >
+            <CardBoard />
+          </div>
+        </div>
+
+        {/* GameInfo - Compact Bottom HUD */}
+        <div
+          className="flex-shrink-0 w-full"
+          style={{
+            height: `${layoutConfig.gameInfoHeight}px`,
+            position: 'sticky',
+            bottom: '0',
+            zIndex: 30,
+          }}
+        >
+          <GameInfo />
+        </div>
+
       </div>
 
       {/* Modals and Overlays */}
@@ -246,7 +270,6 @@ const GameBoard = () =>
       {showSettingsModal && <Settings />}
       {showGuide && <HowToPlay />}
 
-      {/* Loading overlay */}
       {loading && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm z-50">
           <div className="flex flex-col items-center gap-4">

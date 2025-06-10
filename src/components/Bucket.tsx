@@ -8,35 +8,50 @@ const Bucket = () =>
     removeJokerPair
   } = useGameContext();
 
-  return (
-    <div className="w-full relative">
-      {/* Main bucket container */}
-      <div className="bg-gradient-to-br from-[#8B4513] via-[#704337] to-[#5D2E1F] rounded-2xl shadow-xl border border-white/10 overflow-hidden">
-        {/* Top accent bar */}
-        <div className="h-1 bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400"></div>
+  const calculateGridCols = () =>
+  {
+    const totalSlots = Math.max(maxBucket, 8);
+    if (totalSlots <= 6) return 6;
+    if (totalSlots <= 8) return 8;
+    if (totalSlots <= 10) return 10;
+    return 12;
+  };
 
-        {/* Bucket header */}
-        <div className="px-4 py-2 bg-gradient-to-r from-white/5 to-transparent">
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400"></div>
-            <span className="text-white/80 text-sm font-medium uppercase tracking-wider">Sushi Bucket</span>
-            <div className="w-2 h-2 rounded-full bg-gradient-to-br from-pink-400 to-orange-400"></div>
+  const gridCols = calculateGridCols();
+
+  return (
+    <div className="w-full h-full relative">
+      {/* Seamlessly connected bucket container */}
+      <div className="bg-gradient-to-br from-[#8B4513] via-[#704337] to-[#5D2E1F] rounded-b-2xl shadow-xl border-l border-r border-b border-white/10 overflow-hidden h-full flex flex-col">
+
+        {/* Bucket header - more compact */}
+        <div className="px-4 py-2 relative">
+          <div className="flex items-center justify-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 animate-pulse"></div>
+            <span className="text-white/90 text-sm font-semibold uppercase tracking-wider">Sushi Collection</span>
+            <div className="w-2 h-2 rounded-full bg-gradient-to-br from-pink-400 to-orange-400 animate-pulse"></div>
           </div>
+          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-24 h-px"></div>
         </div>
 
-        {/* Cards container */}
-        <div className="p-6 bg-gradient-to-br from-white/5 via-transparent to-white/5">
-          <div className="grid lg:grid-cols-5 grid-cols-8 gap-3 justify-center">
+        {/* Cards container - optimized for compact height */}
+        <div className="flex-1 px-4 py-3 min-h-0 relative">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_white/5_1px,_transparent_1px)] bg-[length:20px_20px] opacity-30"></div>
+
+          <div
+            className="grid gap-2 justify-center h-full content-center relative z-10"
+            style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
+          >
             {/* Filled slots */}
             {bucket.map((card, index) => (
               <div
-                key={`b+${index}`}
+                key={`bucket-${index}`}
                 className={`
-                  relative group w-10 h-10 lg:w-12 lg:h-12 rounded-xl overflow-hidden
-                  transform transition-all duration-300 hover:scale-105
+                  relative group w-full aspect-square rounded-xl overflow-hidden
+                  transform transition-all duration-300 hover:scale-110 hover:rotate-1 max-w-10 max-h-10
                   ${card.highlight
-                    ? 'cursor-pointer ring-2 ring-yellow-400 ring-offset-2 ring-offset-transparent shadow-lg shadow-yellow-400/50 animate-pulse'
-                    : 'shadow-md hover:shadow-lg'
+                    ? 'cursor-pointer ring-2 ring-yellow-400 shadow-lg shadow-yellow-400/50 animate-pulse z-20'
+                    : 'shadow-lg hover:shadow-xl hover:shadow-purple-500/20'
                   }
                 `}
                 style={{
@@ -46,16 +61,12 @@ const Bucket = () =>
                 }}
                 onClick={() => { card.highlight && removeJokerPair(card.type) }}
               >
-                {/* Card background with gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/20 rounded-xl"></div>
-
-                {/* Highlight overlay for interactive cards */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/30 rounded-xl"></div>
                 {card.highlight && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/30 to-orange-400/30 rounded-xl animate-pulse"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/40 to-orange-400/40 rounded-xl animate-pulse"></div>
                 )}
-
-                {/* Hover effect overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/0 group-hover:from-white/10 group-hover:to-white/5 rounded-xl transition-all duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-white/0 group-hover:from-white/20 group-hover:to-purple-400/20 rounded-xl transition-all duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-700"></div>
               </div>
             ))}
 
@@ -63,38 +74,33 @@ const Bucket = () =>
             {Array.from({ length: maxBucket - bucket.length }).map((_, idx) => (
               <div
                 key={`empty-${idx}`}
-                className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border-2 border-dashed border-white/20 flex items-center justify-center group hover:border-white/40 transition-all duration-300"
+                className="w-full aspect-square rounded-xl bg-gradient-to-br from-white/10 to-white/5 border-2 border-dashed border-white/30 flex items-center justify-center group hover:border-white/50 hover:bg-white/15 transition-all duration-300 max-w-10 max-h-10"
               >
-                {/* Empty slot indicator */}
-                <div className="w-4 h-4 rounded-full bg-gradient-to-br from-white/20 to-white/10 group-hover:from-white/30 group-hover:to-white/20 transition-all duration-300"></div>
+                <div className="w-2 h-2 rounded-full bg-gradient-to-br from-white/30 to-white/10 group-hover:from-white/50 group-hover:to-white/20 group-hover:scale-125 transition-all duration-300"></div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Bottom section with capacity indicator */}
-        <div className="px-4 py-2 bg-gradient-to-r from-white/5 to-transparent border-t border-white/10">
+        {/* Compact capacity indicator */}
+        <div className="px-4 py-2 relative">
           <div className="flex items-center justify-center gap-3">
-            <span className="text-white/60 text-xs font-medium">{bucket.length}</span>
-
-            {/* Capacity bar */}
-            <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden max-w-32">
+            <span className="text-white/80 text-xs font-medium">{bucket.length}</span>
+            <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden max-w-24 relative">
               <div
-                className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-400 rounded-full transition-all duration-500 ease-out"
+                className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-400 rounded-full transition-all duration-500 ease-out relative"
                 style={{ width: `${(bucket.length / maxBucket) * 100}%` }}
-              ></div>
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent rounded-full"></div>
+              </div>
             </div>
-
-            <span className="text-white/60 text-xs font-medium">{maxBucket}</span>
+            <span className="text-white/80 text-xs font-medium">{maxBucket}</span>
           </div>
         </div>
 
-        {/* Bottom decorative line */}
-        <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+        {/* Bottom decorative elements */}
+        <div className="h-1 bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 opacity-50 rounded-b-2xl"></div>
       </div>
-
-      {/* Subtle glow effect */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-orange-500/10 opacity-50 blur-xl -z-10"></div>
     </div>
   );
 };

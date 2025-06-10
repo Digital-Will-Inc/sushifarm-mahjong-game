@@ -47,6 +47,7 @@ type GameContextType = {
   additionalSlots: CardNode[];
   lives: number;
   cards: CardNode[];
+  cardSize: number;
   leaderBoard: LeaderBoard;
   score: number;
   slotAvailablity: boolean;
@@ -1078,6 +1079,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       lives,
       gameRestarted,
       cards,
+      cardSize,
       leaderBoard,
       isConnected: true,
       score,
@@ -1135,7 +1137,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       fetchLeaderboard,
       removeJokerPair,
       handleSave,
-      handleLoad
+      handleLoad,
     }),
     [
       loading,
