@@ -349,18 +349,11 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
         setLoseMusic(loseAudio);
         setJokerMusic(jokerAudio);
 
-        // Update loading progress for assets
-        if (wortal.isWortalAvailable)
-        {
-          wortal.setLoadingProgress(30);
-        }
-
         // Wait for Wortal to be initialized
         if (wortal.isWortalAvailable && !wortal.isInitialized)
         {
           console.log('Initializing Wortal SDK...');
           await wortal.initializeWortal();
-          wortal.setLoadingProgress(60);
           setSdkInitialized(true);
           console.log('Wortal SDK initialized successfully');
         } else if (!wortal.isWortalAvailable)
@@ -371,11 +364,9 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
         // Initialize game data
         await registerUser();
-        wortal.setLoadingProgress(80);
 
         // Generate initial cards
         generateCards(initialRound);
-        wortal.setLoadingProgress(90);
 
         // Fetch leaderboard if available
         if (wortal.isWortalAvailable)
@@ -385,6 +376,8 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
         // Complete loading
         wortal.setLoadingProgress(100);
+        console.log("[context] Wortal initialized and loading progress set to 100%");
+
         setLoading(false);
         setGameInitialized(true);
         setGameLoadingFinished(true);
@@ -432,19 +425,19 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       description,
       () =>
       {
-        muteAudioForAd();
         console.log('Interstitial ad starting');
+        muteAudioForAd();
       },
       () =>
       {
+        console.log('Interstitial ad finished');
         unmuteAudioAfterAd();
         setAdPlaying(false);
-        console.log('Interstitial ad finished');
       },
       () =>
       {
-        setAdPlaying(false);
         console.log('Interstitial ad not shown');
+        setAdPlaying(false);
       }
     );
   }, [wortal, fireGameplayStop, muteAudioForAd, unmuteAudioAfterAd]);

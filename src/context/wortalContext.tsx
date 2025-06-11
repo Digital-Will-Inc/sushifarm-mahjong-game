@@ -239,6 +239,8 @@ export const WortalProvider = ({ children }: PropsWithChildren) =>
             await window.Wortal.initializeAsync();
             setIsInitialized(true);
 
+            window.Wortal.setLoadingProgress(100);
+            await window.Wortal.startGameAsync();
             // Get player info
             const playerData: WortalPlayer = {
                 id: window.Wortal.player.getID(),
@@ -294,6 +296,7 @@ export const WortalProvider = ({ children }: PropsWithChildren) =>
     {
         if (!isWortalAvailable) return;
         window.Wortal.setLoadingProgress(progress);
+        console.log(`[wortal context] Loading progress set to ${progress}%`);
     }, [isWortalAvailable]);
 
     // Player data methods
