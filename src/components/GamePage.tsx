@@ -31,6 +31,9 @@ type LayoutConfig = {
   gridRows: number;
   minComponentHeight: number;   // Minimum height for components
   maxComponentHeight: number;   // Maximum height for components
+  sidebarWidthRatio: number;    // Width ratio for sidebar in landscape
+  minSidebarWidth: number;      // Minimum sidebar width
+  maxSidebarWidth: number;      // Maximum sidebar width
 };
 
 const GameBoard = () =>
@@ -72,7 +75,7 @@ const GameBoard = () =>
     }
   }, [showCongrats]);
 
-  // Updated layout configuration with ratios
+  // Updated layout configuration with landscape support
   const [layoutConfig, setLayoutConfig] = useState<LayoutConfig>({
     containerPadding: 8,
     // These ratios will scale based on screen size
@@ -87,6 +90,9 @@ const GameBoard = () =>
     gridRows: 10,
     minComponentHeight: 50,       // Minimum height to ensure usability
     maxComponentHeight: 120,      // Maximum height to prevent oversizing
+    sidebarWidthRatio: 0.25,      // 25% of screen width for sidebar in landscape
+    minSidebarWidth: 200,         // Minimum sidebar width
+    maxSidebarWidth: 300,         // Maximum sidebar width
   });
 
   const [layout, setLayout] = useState({
@@ -103,6 +109,8 @@ const GameBoard = () =>
     cardBoardGap: 8,
     isMobile: true,
     isLandscape: false,
+    sidebarWidth: 0,              // Width of sidebar in landscape mode
+    useHorizontalLayout: false,   // Whether to use horizontal layout
   });
 
   const calculateOptimalLayout = () =>
@@ -112,6 +120,9 @@ const GameBoard = () =>
     const isMobile = screenWidth < layoutConfig.mobileBreakpoint;
     const isLandscape = screenWidth > screenHeight;
 
+    // Determine if we should use horizontal layout (landscape with sufficient width)
+    const useHorizontalLayout = isLandscape && screenWidth > 600; // Minimum width threshold
+
     // Calculate dynamic heights based on screen size and ratios
     const baseHeaderHeight = screenHeight * layoutConfig.headerHeightRatio;
     const baseBucketHeight = screenHeight * layoutConfig.bucketHeightRatio;
@@ -119,16 +130,38 @@ const GameBoard = () =>
     const baseHudGap = screenHeight * layoutConfig.hudGapRatio;
     const baseCardBoardGap = screenWidth * layoutConfig.cardBoardGapRatio;
 
+    // Container dimensions
+    const containerWidth = screenWidth - (layoutConfig.containerPadding * 2);
+    const containerHeight = screenHeight - (layoutConfig.containerPadding * 2);
+
     // Apply min/max constraints to prevent components from being too small or too large
     const headerHeight = Math.max(
       layoutConfig.minComponentHeight,
       Math.min(layoutConfig.maxComponentHeight, baseHeaderHeight)
     );
 
-    const bucketHeight = Math.max(
-      layoutConfig.minComponentHeight,
-      Math.min(layoutConfig.maxComponentHeight, baseBucketHeight)
-    );
+    let bucketHeight;
+    if (useHorizontalLayout)
+    {
+      // In landscape, bucket can use more of the available sidebar height
+      const availableSidebarHeight = containerHeight - (layoutConfig.containerPadding * 2);
+      const reservedForHeaderAndGameInfo = baseHeaderHeight + baseGameInfoHeight + (baseHudGap * 2);
+      const availableForBucket = availableSidebarHeight - reservedForHeaderAndGameInfo;
+
+      bucketHeight = Math.max(
+        layoutConfig.minComponentHeight,
+        Math.min(
+          layoutConfig.maxComponentHeight * 1.2, // Allow larger max in landscape
+          Math.min(baseBucketHeight * 1.8, availableForBucket * 0.4) // Use up to 40% of available space
+        )
+      );
+    } else
+    {
+      bucketHeight = Math.max(
+        layoutConfig.minComponentHeight,
+        Math.min(layoutConfig.maxComponentHeight, baseBucketHeight)
+      );
+    }
 
     const gameInfoHeight = Math.max(
       layoutConfig.minComponentHeight,
@@ -139,24 +172,45 @@ const GameBoard = () =>
     const hudGap = Math.max(8, Math.min(20, baseHudGap));
     const cardBoardGap = Math.max(4, Math.min(16, baseCardBoardGap));
 
-    // Container dimensions
-    const containerWidth = screenWidth - (layoutConfig.containerPadding * 2);
-    const containerHeight = screenHeight - (layoutConfig.containerPadding * 2);
 
-    // Calculate total HUD space requirements with dynamic heights
-    const totalHudHeight = headerHeight + bucketHeight + gameInfoHeight + (hudGap * 3);
 
-    // Available space for cardboard
-    const availableWidth = containerWidth - (cardBoardGap * 2);
-    const availableHeight = containerHeight - totalHudHeight - (cardBoardGap * 2);
+    let cardBoardWidth, cardBoardHeight, sidebarWidth = 0;
 
-    // Ensure we have positive dimensions
-    const safeAvailableWidth = Math.max(200, availableWidth);
-    const safeAvailableHeight = Math.max(200, availableHeight);
+    if (useHorizontalLayout)
+    {
+      // Landscape layout: sidebar on the right
+      const baseSidebarWidth = screenWidth * layoutConfig.sidebarWidthRatio;
+      sidebarWidth = Math.max(
+        layoutConfig.minSidebarWidth,
+        Math.min(layoutConfig.maxSidebarWidth, baseSidebarWidth)
+      );
 
-    // Calculate cardboard dimensions to fill available space
-    let cardBoardWidth = safeAvailableWidth;
-    let cardBoardHeight = safeAvailableHeight;
+      // Available space for cardboard (subtract sidebar width and gaps)
+      const availableWidth = containerWidth - sidebarWidth - (cardBoardGap * 3);
+      const availableHeight = containerHeight - (cardBoardGap * 2);
+
+      // Ensure we have positive dimensions
+      const safeAvailableWidth = Math.max(200, availableWidth);
+      const safeAvailableHeight = Math.max(200, availableHeight);
+
+      cardBoardWidth = safeAvailableWidth;
+      cardBoardHeight = safeAvailableHeight;
+    } else
+    {
+      // Portrait layout: original vertical layout
+      const totalHudHeight = headerHeight + bucketHeight + gameInfoHeight + (hudGap * 3);
+
+      // Available space for cardboard
+      const availableWidth = containerWidth - (cardBoardGap * 2);
+      const availableHeight = containerHeight - totalHudHeight - (cardBoardGap * 2);
+
+      // Ensure we have positive dimensions
+      const safeAvailableWidth = Math.max(200, availableWidth);
+      const safeAvailableHeight = Math.max(200, availableHeight);
+
+      cardBoardWidth = safeAvailableWidth;
+      cardBoardHeight = safeAvailableHeight;
+    }
 
     // Calculate card size based on available cardboard space and grid
     const cardSizeByWidth = (cardBoardWidth * 0.95) / layoutConfig.gridCols;
@@ -170,8 +224,8 @@ const GameBoard = () =>
     const optimalCardBoardHeight = cardSize * layoutConfig.gridRows * 1.05;
 
     // Use the optimal dimensions if they fit, otherwise use available space
-    const finalCardBoardWidth = Math.min(optimalCardBoardWidth, safeAvailableWidth);
-    const finalCardBoardHeight = Math.min(optimalCardBoardHeight, safeAvailableHeight);
+    const finalCardBoardWidth = Math.min(optimalCardBoardWidth, cardBoardWidth);
+    const finalCardBoardHeight = Math.min(optimalCardBoardHeight, cardBoardHeight);
 
     // Final card size adjustment based on actual cardboard dimensions
     const finalCardSizeByWidth = (finalCardBoardWidth * 0.95) / layoutConfig.gridCols;
@@ -192,6 +246,8 @@ const GameBoard = () =>
       cardBoardGap: Math.floor(cardBoardGap),
       isMobile,
       isLandscape,
+      sidebarWidth: Math.floor(sidebarWidth),
+      useHorizontalLayout,
     };
   };
 
@@ -261,95 +317,133 @@ const GameBoard = () =>
     >
       <div className="absolute inset-0 bg-yellow-200/20"></div>
 
-      {/* Responsive Layout Container */}
+      {/* Responsive Layout Container - Always Centered */}
       <div
-        className="relative z-10 flex flex-col h-full w-full items-center"
+        className="relative z-10 flex h-full w-full items-center justify-center"
         style={{
           padding: `${layoutConfig.containerPadding}px`,
         }}
       >
-
-        {/* Header Section - Dynamic Height, Same Width as CardBoard */}
         <div
-          className="flex-shrink-0 flex justify-center"
+          className="flex items-center justify-center"
           style={{
-            height: `${layout.headerHeight}px`,
-            marginBottom: `${layout.hudGap}px`,
-            width: '100%',
+            flexDirection: layout.useHorizontalLayout ? 'row' : 'column',
+            gap: layout.useHorizontalLayout ? `${layout.cardBoardGap}px` : '0px',
           }}
         >
-          <div
-            style={{
-              width: `${layout.cardBoardWidth}px`,
-              height: '100%',
-            }}
-          >
-            <Header />
-          </div>
-        </div>
+          {layout.useHorizontalLayout ? (
+            // Horizontal Layout (Landscape) - Centered
+            <>
+              {/* CardBoard Section - Left Side */}
+              <div
+                className="flex items-center justify-center flex-shrink-0"
+                style={{
+                  width: `${layout.cardBoardWidth}px`,
+                  height: `${layout.cardBoardHeight}px`,
+                }}
+              >
+                <CardBoard />
+              </div>
 
-        {/* Bucket Section - Dynamic Height, Same Width as CardBoard */}
-        <div
-          className="flex-shrink-0 flex justify-center"
-          style={{
-            height: `${layout.bucketHeight}px`,
-            marginBottom: `${layout.hudGap}px`,
-            width: '100%',
-          }}
-        >
-          <div
-            style={{
-              width: `${layout.cardBoardWidth}px`,
-              height: '100%',
-            }}
-          >
-            <Bucket />
-          </div>
-        </div>
+              {/* Sidebar - Right Side with Top and Bottom Sections */}
+              <div
+                className="flex flex-col justify-between flex-shrink-0"
+                style={{
+                  width: `${layout.sidebarWidth}px`,
+                  height: `${layout.cardBoardHeight}px`, // Match cardboard height for perfect alignment
+                }}
+              >
+                {/* Top Section - Header and Bucket */}
+                <div
+                  className="flex flex-col"
+                  style={{
+                    gap: `${layout.hudGap}px`,
+                  }}
+                >
+                  {/* Header */}
+                  <div
+                    style={{
+                      height: `${layout.headerHeight}px`,
+                      width: '100%',
+                    }}
+                  >
+                    <Header />
+                  </div>
 
-        {/* CardBoard Section - Flexible, Centered */}
-        <div
-          className="flex-1 flex items-center justify-center"
-          style={{
-            minHeight: 0,
-            padding: `${layout.cardBoardGap}px`,
-            width: '100%',
-          }}
-        >
-          <div
-            style={{
-              width: `${layout.cardBoardWidth}px`,
-              height: `${layout.cardBoardHeight}px`,
-              maxWidth: '100%',
-              maxHeight: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <CardBoard />
-          </div>
-        </div>
+                  {/* Bucket */}
+                  <div
+                    style={{
+                      height: `${layout.bucketHeight}px`,
+                      width: '100%',
+                    }}
+                  >
+                    <Bucket />
+                  </div>
+                </div>
 
-        {/* GameInfo Section - Dynamic Height, Same Width as CardBoard */}
-        <div
-          className="flex-shrink-0 flex justify-center"
-          style={{
-            height: `${layout.gameInfoHeight}px`,
-            marginTop: `${layout.hudGap}px`,
-            width: '100%',
-          }}
-        >
-          <div
-            style={{
-              width: `${layout.cardBoardWidth}px`,
-              height: '100%',
-            }}
-          >
-            <GameInfo />
-          </div>
-        </div>
+                {/* Bottom Section - GameInfo */}
+                <div
+                  style={{
+                    height: `${layout.gameInfoHeight}px`,
+                    width: '100%',
+                  }}
+                >
+                  <GameInfo />
+                </div>
+              </div>
+            </>
+          ) : (
+            // Vertical Layout (Portrait) - Centered
+            <div
+              className="flex flex-col items-center justify-center"
+              style={{
+                width: `${layout.cardBoardWidth}px`,
+                gap: `${layout.hudGap}px`,
+              }}
+            >
+              {/* Header Section */}
+              <div
+                className="flex-shrink-0 w-full"
+                style={{
+                  height: `${layout.headerHeight}px`,
+                }}
+              >
+                <Header />
+              </div>
 
+              {/* Bucket Section */}
+              <div
+                className="flex-shrink-0 w-full"
+                style={{
+                  height: `${layout.bucketHeight}px`,
+                }}
+              >
+                <Bucket />
+              </div>
+
+              {/* CardBoard Section */}
+              <div
+                className="flex-shrink-0 flex items-center justify-center"
+                style={{
+                  width: `${layout.cardBoardWidth}px`,
+                  height: `${layout.cardBoardHeight}px`,
+                }}
+              >
+                <CardBoard />
+              </div>
+
+              {/* GameInfo Section */}
+              <div
+                className="flex-shrink-0 w-full"
+                style={{
+                  height: `${layout.gameInfoHeight}px`,
+                }}
+              >
+                <GameInfo />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modals and Overlays */}
