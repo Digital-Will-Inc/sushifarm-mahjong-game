@@ -513,49 +513,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [gameplayActive, adPlaying, pauseGame]);
 
-  // Prevent space bar and other controls during ads
-  useEffect(() =>
-  {
-    const handleKeyDown = (event: KeyboardEvent) =>
-    {
-      if (adPlaying)
-      {
-        // Prevent all keyboard interactions during ads
-        event.preventDefault();
-        event.stopPropagation();
-        return false;
-      }
-    };
-
-    const handleClick = (event: MouseEvent) =>
-    {
-      if (adPlaying)
-      {
-        // Prevent clicks during ads (except on ad content)
-        const target = event.target as HTMLElement;
-        if (!target.closest('[data-ad-content]'))
-        {
-          event.preventDefault();
-          event.stopPropagation();
-          return false;
-        }
-      }
-    };
-
-    if (adPlaying)
-    {
-      document.addEventListener('keydown', handleKeyDown, true);
-      document.addEventListener('click', handleClick, true);
-    }
-
-    return () =>
-    {
-      document.removeEventListener('keydown', handleKeyDown, true);
-      document.removeEventListener('click', handleClick, true);
-    };
-  }, [adPlaying]);
-
-  // Rest of your existing useEffect hooks remain the same...
   useEffect(() =>
   {
     if (isHint && layerNumber == 0) handleHintSelected();
@@ -837,9 +794,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       }
     }
   };
-
-  // All other existing methods remain the same...
-  // (gcd, lcd, checkVIPStatus, shuffleCards, etc.)
 
   const gcd = (x: number, y: number): number =>
   {
