@@ -74,12 +74,11 @@ type GameContextType = {
   layerNumber: number;
   loading: boolean;
 
-  // New Wortal-specific properties
+  //Wortal-specific properties
   gameplayActive: boolean;
   adPlaying: boolean;
   gameLoadingFinished: boolean;
   sdkInitialized: boolean;
-  audioMutedForAd: boolean;
 
   setCardSize: (s: number) => void;
   setShowGuide: (f: boolean) => void;
@@ -179,19 +178,17 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   const [adPlaying, setAdPlaying] = useState(false);
   const [gameLoadingFinished, setGameLoadingFinished] = useState(false);
   const [sdkInitialized, setSdkInitialized] = useState(false);
-  const [audioMutedForAd, setAudioMutedForAd] = useState(false);
   const [gameplayStartFired, setGameplayStartFired] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
 
   // Audio state backup for ad muting
-  const [audioStateBeforeAd, setAudioStateBeforeAd] = useState({
-    backgroundMusicVolume: 1,
-    backgroundMusicPlaying: false,
-    soundEnabled: true,
-    musicEnabled: true
-  });
+  const [audioStateBeforeAd, setAudioStateBeforeAd] = useState<{
+    soundOff: boolean;
+    musicOff: boolean;
+  } | null>(null);
 
   const TotalCardsType = 22;
+  const audioMutedRef = useRef(false);
 
   const [currentUser, setCurrentUser] = useState<User | null>({
     id: '1',
@@ -258,73 +255,68 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       fireGameplayStart();
 
       // Resume background music if it was playing and not muted
-      if (backgroundMusic && !musicOff && !audioMutedForAd)
+      if (backgroundMusic && !musicOff)
       {
         backgroundMusic.play().catch(console.error);
       }
 
       console.log('Game Resumed');
     }
-  }, [isPaused, fireGameplayStart, backgroundMusic, musicOff, audioMutedForAd]);
+  }, [isPaused, fireGameplayStart, backgroundMusic, musicOff]);
 
-  // Mute audio for ads
+  // Centralized audio control using existing state setters
   const muteAudioForAd = useCallback(() =>
   {
-    if (!audioMutedForAd)
+    if (audioStateBeforeAd)
     {
-      // Store current audio state
-      setAudioStateBeforeAd({
-        backgroundMusicVolume: backgroundMusic?.volume || 1,
-        backgroundMusicPlaying: backgroundMusic ? !backgroundMusic.paused : false,
-        soundEnabled: !soundOff,
-        musicEnabled: !musicOff
-      });
-
-      // Mute all audio elements
-      [backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic].forEach(audio =>
-      {
-        if (audio)
-        {
-          audio.volume = 0;
-          audio.pause();
-          // Ensure any queued audio playback is cancelled
-          audio.currentTime = 0;
-        }
-      });
-
-      // Set global mute flag
-      setAudioMutedForAd(true);
-      setSoundOff(true);
-      setMusicOff(true);
-      console.log('All audio muted for ad');
+      console.log('Audio already muted for ad, skipping');
+      return;
     }
-  }, [audioMutedForAd, backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic, setSoundOff, setMusicOff]);
 
-  // Unmute audio after ads
+    audioMutedRef.current = true;
+    console.log('Muting audio for ad - storing current state');
+
+    // Store current audio preferences
+    setAudioStateBeforeAd({
+      soundOff: soundOff,
+      musicOff: musicOff
+    });
+
+    // Mute everything using existing setters
+    setSoundOff(true);
+    setMusicOff(true);
+
+    // Ensure all audio elements are immediately stopped
+    const audioElements = [backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic].filter(Boolean);
+    audioElements.forEach(audio =>
+    {
+      if (audio && !audio.paused)
+      {
+        audio.pause();
+      }
+    });
+
+  }, [soundOff, musicOff, setSoundOff, setMusicOff, backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic]);
+
   const unmuteAudioAfterAd = useCallback(() =>
   {
-    if (audioMutedForAd)
+    console.log('Restoring audio after ad');
+    audioMutedRef.current = false;
+    if (audioStateBeforeAd)
     {
-      // Restore all audio elements
-      [backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic].forEach(audio =>
-      {
-        if (audio)
-        {
-          audio.volume = audioStateBeforeAd.backgroundMusicVolume;
-          if (audio === backgroundMusic && audioStateBeforeAd.backgroundMusicPlaying && !musicOff)
-          {
-            audio.play().catch(console.error);
-          }
-        }
-      });
+      // Restore original audio preferences using existing setters
+      setSoundOff(audioStateBeforeAd.soundOff);
+      setMusicOff(audioStateBeforeAd.musicOff);
 
-      // Restore global audio state
-      setAudioMutedForAd(false);
-      setSoundOff(!audioStateBeforeAd.soundEnabled);
-      setMusicOff(!audioStateBeforeAd.musicEnabled);
-      console.log('All audio restored after ad');
+      // Clear the stored state
+      setAudioStateBeforeAd(null);
+
+      console.log(`Restored audio state: soundOff=${audioStateBeforeAd.soundOff}, musicOff=${audioStateBeforeAd.musicOff}`);
+    } else
+    {
+      console.log('No stored audio state found, keeping current settings');
     }
-  }, [audioMutedForAd, backgroundMusic, dropMusic, winMusic, loseMusic, jokerMusic, audioStateBeforeAd, musicOff, setSoundOff, setMusicOff]);
+  }, [audioStateBeforeAd, setSoundOff, setMusicOff]);
 
   // Initialize game assets and Wortal SDK
   useEffect(() =>
@@ -419,6 +411,8 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
     setAdPlaying(true);
     fireGameplayStop(); // Stop gameplay before ad
+
+    muteAudioForAd(); // i put it here because sometimes the before add callback doesnt works
 
     window.Wortal.ads.showInterstitial(
       placement,
@@ -546,37 +540,69 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
 
   useEffect(() =>
   {
-    if (backgroundMusic)
+    if (!backgroundMusic) return;
+
+    if (musicOff)
     {
-      backgroundMusic.loop = true;
-      const handleLoop = () =>
+      // Music is disabled - pause it
+      if (!backgroundMusic.paused)
       {
-        if (backgroundMusic.currentTime > backgroundMusic.duration)
+        backgroundMusic.pause();
+      }
+    } else if (!isPaused && !adPlaying && gameStarted)
+    {
+      // Music should play - resume it
+      if (backgroundMusic.paused)
+      {
+        backgroundMusic.play().catch(error =>
         {
-          backgroundMusic.currentTime = 0;
-        }
-      };
-
-      backgroundMusic.addEventListener('timeupdate', handleLoop);
-
-      return () =>
+          console.error('Failed to play background music:', error);
+        });
+      }
+    } else if (isPaused || adPlaying)
+    {
+      // Game is paused or ad is playing - pause music
+      if (!backgroundMusic.paused)
       {
-        backgroundMusic.removeEventListener('timeupdate', handleLoop);
-      };
+        backgroundMusic.pause();
+      }
     }
-  }, [backgroundMusic]);
+  }, [musicOff, isPaused, adPlaying, gameStarted, backgroundMusic]);
+
+  // Enhanced sound effect playing function
+  const playSound = useCallback((audioElement: HTMLAudioElement | null) =>
+  {
+    if (!audioElement || soundOff || audioMutedRef.current || adPlaying) return;
+
+    try
+    {
+      audioElement.currentTime = 0; // Reset to beginning
+      audioElement.play().catch(error =>
+      {
+        console.error('Failed to play sound effect:', error);
+      });
+    } catch (error)
+    {
+      console.error('Error playing sound:', error);
+    }
+  }, [soundOff]);
 
   useEffect(() =>
   {
-    if (backgroundMusic == null) return;
-    if (musicOff || audioMutedForAd)
+    if (!adPlaying) return;
+
+    const timeout = setTimeout(() =>
     {
-      backgroundMusic.pause();
-    } else if (!isPaused && !adPlaying)
-    {
-      backgroundMusic.play();
-    }
-  }, [musicOff, audioMutedForAd, isPaused, adPlaying, backgroundMusic])
+      console.log('Ad timeout - recovering audio state');
+      if (audioStateBeforeAd)
+      {
+        unmuteAudioAfterAd();
+      }
+      setAdPlaying(false);
+    }, 25000); // 25 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [adPlaying, audioStateBeforeAd, unmuteAudioAfterAd]);
 
   useEffect(() =>
   {
@@ -673,7 +699,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       );
     }
 
-    if (backgroundMusic && !isPlaying && !musicOff && !audioMutedForAd)
+    if (backgroundMusic && !isPlaying && !musicOff)
     {
       backgroundMusic
         .play()
@@ -752,8 +778,8 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       wortal.logLevelStart(`round_${_round.roundNumber}`);
     }
 
-    // Show interstitial ad between rounds (optional)
-    if (_round.roundNumber % 3 === 0)
+    // Show interstitial ad after stage 2 and on even numbered stages
+    if (_round.roundNumber >= 3 && (_round.roundNumber % 2 === 1))
     {
       showInterstitialAdWithAudioHandling('next', 'NextLevel');
     }
@@ -764,8 +790,7 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   {
     fireGameplayStop(); // Stop gameplay when losing life
 
-    const audio = new Audio('./assets/audio/lose.wav');
-    !soundOff && !audioMutedForAd && audio.play();
+    playSound(loseMusic);
 
     if (lives > 1)
     {
@@ -1222,16 +1247,14 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
   // Enhanced handle card click with audio management
   const handleCardClick = (card: CardNode) =>
   {
-    if (highlighted || adPlaying) return; // Don't allow clicks during ads
+    if (highlighted || adPlaying || audioMutedRef.current) return;
 
     if (card.type > -1)
     {
-      const audio = new Audio('./assets/audio/drop.wav');
-      !soundOff && !audioMutedForAd && audio.play();
+      playSound(dropMusic);
     } else
     {
-      const audio = new Audio('./assets/audio/Joker.mp3');
-      !soundOff && !audioMutedForAd && audio.play();
+      playSound(jokerMusic);
     }
 
     if (card.state == "available") setRollbackAvailable(true && !rollbackPressed);
@@ -1434,12 +1457,11 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       layerNumber,
       loading,
 
-      // New Wortal-specific values
+      //Wortal-specific values
       gameplayActive,
       adPlaying,
       gameLoadingFinished,
       sdkInitialized,
-      audioMutedForAd,
 
       progressBorderSettings: progressBorderSettings,
       setProgressBorderSettings,
@@ -1521,7 +1543,6 @@ export const GameProvider = ({ children }: PropsWithChildren) =>
       adPlaying,
       gameLoadingFinished,
       sdkInitialized,
-      audioMutedForAd,
       fireGameplayStart,
       fireGameplayStop,
       pauseGame,
